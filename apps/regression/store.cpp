@@ -274,6 +274,21 @@ double Store::standardDeviationOfColumn(int series, int i) const {
   return std::sqrt(varianceOfColumn(series, i));
 }
 
+double Store::sampleStandardDeviationOfColumn(int series, int i) const {
+  if(sumOfColumn(series, i) == 0) {
+    return 0;
+  }
+
+  double sum = 0;
+  double avg = meanOfColumn(series, i);
+
+  for (int k = 0; k < numberOfPairsOfSeries(series); k++) {
+    sum += std::pow(m_data[series][0][k] - avg, 2);
+  }
+
+  return std::sqrt(sum / (numberOfPairsOfSeries(series) - 1));
+}
+
 double Store::covariance(int series) const {
   return columnProductSum(series)/numberOfPairsOfSeries(series) - meanOfColumn(series, 0)*meanOfColumn(series, 1);
 }

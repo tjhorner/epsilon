@@ -63,6 +63,7 @@ public:
   double meanOfColumn(int series, int i) const;
   double varianceOfColumn(int series, int i) const;
   double standardDeviationOfColumn(int series, int i) const;
+  double sampleStandardDeviationOfColumn(int series, int i) const;
   double covariance(int series) const;
   double slope(int series) const;
   double yIntercept(int series) const;

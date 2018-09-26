@@ -50,3 +50,9 @@ escher/image/inliner
 
 # Ignore generated qtsrdefs file
 python/port/genhdr/qstrdefs.generated.h
+
+# VSCode
+.vscode
+
+# Lingering bin files
+ion/src/device/usb/dfu.bin

@@ -281,7 +281,6 @@ double Store::sampleStandardDeviationOfColumn(int series, int i) const {
 
   double sum = 0;
   double avg = meanOfColumn(series, i);
-
   for (int k = 0; k < numberOfPairsOfSeries(series); k++) {
     sum += std::pow(m_data[series][i][k] - avg, 2);
   }
@@ -312,7 +311,7 @@ double Store::residualStandardDeviation(int series, Poincare::Context * globalCo
     sum += std::pow(m_data[series][1][k] - yValueForXValue(series, m_data[series][0][k], globalContext), 2);
   }
 
-  return sum / numberOfPairsOfSeries(series) - 2;
+  return sum / (numberOfPairsOfSeries(series) - 2);
 }
 
 double Store::yValueForXValue(int series, double x, Poincare::Context * globalContext) {

@@ -184,10 +184,10 @@ void CalculationController::willDisplayCellAtLocation(HighlightCell * cell, int 
     double calculation = 0;
     if(methodIndex == 0) {
       Poincare::Context * globContext = const_cast<AppsContainer *>(static_cast<const AppsContainer *>(app()->container()))->globalContext();
-      calculation = 69; // m_store->residualStandardDeviation(seriesNumber, globContext);
+      calculation = m_store->residualStandardDeviation(seriesNumber, globContext);
     } else {
       CalculPointer calculationMethods[] = {&Store::doubleCastedNumberOfPairsOfSeries, &Store::covariance, &Store::columnProductSum};
-      calculation = (m_store->*calculationMethods[methodIndex + 1])(seriesNumber);
+      calculation = (m_store->*calculationMethods[methodIndex - 1])(seriesNumber);
     }
     char buffer[PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits)];
     PoincareHelpers::ConvertFloatToText<double>(calculation, buffer, PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits), Constant::LargeNumberOfSignificantDigits);

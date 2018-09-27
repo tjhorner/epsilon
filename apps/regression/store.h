@@ -66,6 +66,7 @@ public:
   double sampleStandardDeviationOfColumn(int series, int i) const;
   double covariance(int series) const;
   double slope(int series) const;
+  double residualStandardDeviation(int series, Poincare::Context * globalContext);
   double yIntercept(int series) const;
   double yValueForXValue(int series, double x, Poincare::Context * globalContext);
   double xValueForYValue(int series, double y, Poincare::Context * globalContext);

@@ -45,9 +45,9 @@ public:
   int reusableCellCount(int type) override;
   int typeAtLocation(int i, int j) override;
 private:
-  constexpr static int k_maxNumberOfDisplayableRows = 11;
+  constexpr static int k_maxNumberOfDisplayableRows = 12;
   constexpr static int k_totalNumberOfDoubleBufferRows = 6;
-  constexpr static int k_maxNumberOfSingleBufferRows = 11;
+  constexpr static int k_maxNumberOfSingleBufferRows = 12;
   constexpr static int k_numberOfDoubleCalculationCells = Store::k_numberOfSeries * k_totalNumberOfDoubleBufferRows;
   constexpr static int k_numberOfCalculationCells = Store::k_numberOfSeries * k_maxNumberOfSingleBufferRows;
   constexpr static int k_standardCalculationTitleCellType = 0;
@@ -56,7 +56,7 @@ private:
   constexpr static int k_doubleBufferCalculationCellType = 3;
   constexpr static int k_standardCalculationCellType = 4;
   static constexpr int k_hideableCellType = 5;
-  static constexpr int k_regressionCellIndex = 10;
+  static constexpr int k_regressionCellIndex = 11;
 
   static constexpr KDCoordinate k_cellHeight = 25;
   static constexpr KDCoordinate k_smallCalculationCellWidth = Ion::Display::Width/2 - Metric::CommonRightMargin/2 - Metric::CommonLeftMargin/2;

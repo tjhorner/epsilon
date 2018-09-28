@@ -5,7 +5,7 @@
 
 ## Epsilon for AP Stats
 
-This is a fork of the Epsilon operating system with improvements aimed to be convenient for students taking the AP Statistics course.
+This is a fork of the Epsilon operating system with improvements aimed to be convenient for students taking the AP Statistics course. [(The NumWorks calculator is approved for the exam!)](https://apstudent.collegeboard.org/takingtheexam/exam-policies/calculator-policy) I modified it for my personal use, but it would probably be useful for a person or two.
 
 <img width="320" alt="image" src="https://user-images.githubusercontent.com/2646487/46230580-de8c3a80-c31d-11e8-81dc-b2ad32296ea5.png">
 

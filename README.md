@@ -3,6 +3,27 @@
 [![Build Status](https://api.travis-ci.org/numworks/epsilon.svg?branch=master)](https://travis-ci.org/numworks/epsilon)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/numworks/epsilon?branch=master&svg=true)](https://ci.appveyor.com/project/Ecco/epsilon-n2hn8/branch/master)
 
+## Epsilon for AP Stats
+
+This is a fork of the Epsilon operating system with improvements aimed to be convenient for students taking the AP Statistics course.
+
+<img width="320" alt="image" src="https://user-images.githubusercontent.com/2646487/46230580-de8c3a80-c31d-11e8-81dc-b2ad32296ea5.png">
+
+Some of these improvements (so far) include:
+
+- Sample standard deviation in stats tab on Regression app
+- Residual standard deviation in stats tab on Regression app
+
+Some planned improvements include:
+
+- Copying/pasting lists of data
+- Saving/loading lists of data
+- More lists in stats/regression apps
+- Better list integration (e.g. being able to reference `V1` from the calculation app)
+- [Some more here](https://github.com/numworks/epsilon/issues/690)
+
+## Original Readme
+
 Epsilon is a high-performance graphing calculator operating system. It includes eight apps that cover the high school mathematics curriculum.
 
 You can try Epsilon straight from your browser in the [online simulator](https://www.numworks.com/simulator/).

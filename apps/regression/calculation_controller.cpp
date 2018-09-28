@@ -104,7 +104,7 @@ Responder * CalculationController::defaultController() {
 }
 
 int CalculationController::numberOfRows() {
-  return 1 + k_totalNumberOfDoubleBufferRows + 4 + maxNumberOfCoefficients() + hasLinearRegression() * 2;
+  return 1 + k_totalNumberOfDoubleBufferRows + 5 + maxNumberOfCoefficients() + hasLinearRegression() * 2;
 }
 
 int CalculationController::numberOfColumns() {
@@ -159,6 +159,7 @@ void CalculationController::willDisplayCellAtLocation(HighlightCell * cell, int 
   }
 
   // Calculation cell
+  // Double rows
   if (i > 0 && j > 0 && j <= k_totalNumberOfDoubleBufferRows) {
     ArgCalculPointer calculationMethods[k_totalNumberOfDoubleBufferRows] = {&Store::meanOfColumn, &Store::sumOfColumn, &Store::squaredValueSumOfColumn, &Store::standardDeviationOfColumn, &Store::sampleStandardDeviationOfColumn, &Store::varianceOfColumn};
     double calculation1 = (m_store->*calculationMethods[j-1])(seriesNumber, 0);
@@ -172,12 +173,14 @@ void CalculationController::willDisplayCellAtLocation(HighlightCell * cell, int 
     return;
   }
   SeparatorEvenOddBufferTextCell * bufferCell = (SeparatorEvenOddBufferTextCell *)cell;
+  // Regression formula value cell
   if (i > 0 && j == k_regressionCellIndex) {
     Model * model = m_store->modelForSeries(seriesNumber);
     const char * formula = I18n::translate(model->formulaMessage());
     bufferCell->setText(formula);
     return;
   }
+  // Single-column rows before "regression" row
   if (i > 0 && j > k_totalNumberOfDoubleBufferRows && j < k_regressionCellIndex) {
     assert(j != k_regressionCellIndex);
     int methodIndex = j-k_totalNumberOfDoubleBufferRows-1;
@@ -194,6 +197,7 @@ void CalculationController::willDisplayCellAtLocation(HighlightCell * cell, int 
     bufferCell->setText(buffer);
     return;
   }
+  // Everything after the regression row
   if (i > 0 && j > k_totalNumberOfDoubleBufferRows) {
     assert(j > k_regressionCellIndex);
     int maxNumberCoefficients = maxNumberOfCoefficients();

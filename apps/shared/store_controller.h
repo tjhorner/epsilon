@@ -18,9 +18,11 @@ public:
   View * view() override { return &m_contentView; }
 
   virtual StoreContext * storeContext() = 0;
+  void initializeColumn();
   void displayFormulaInput();
   virtual void setFormulaLabel() = 0;
   virtual bool fillColumnWithFormula(Poincare::Expression formula) = 0;
+  bool m_isInitializing;
 
   // TextFieldDelegate
   bool textFieldShouldFinishEditing(TextField * textField, Ion::Events::Event event) override;

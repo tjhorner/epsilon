@@ -11,6 +11,7 @@ StoreParameterController::StoreParameterController(Responder * parentResponder, 
   m_selectableTableView(this, this, this),
   m_deleteColumn(I18n::Message::ClearColumn),
   m_fillWithFormula(I18n::Message::FillWithFormula),
+  m_initializeColumn(I18n::Message::InitializeColumn),
 #if COPY_IMPORT_LIST
   m_copyColumn(I18n::Message::CopyColumnInList),
   m_importList(I18n::Message::ImportList),
@@ -46,6 +47,13 @@ bool StoreParameterController::handleEvent(Ion::Events::Event event) {
       case 1:
       {
         m_storeController->displayFormulaInput();
+        StackViewController * stack = ((StackViewController *)parentResponder());
+        stack->pop();
+        return true;
+      }
+      case 2:
+      {
+        m_storeController->initializeColumn();
         StackViewController * stack = ((StackViewController *)parentResponder());
         stack->pop();
         return true;
@@ -88,7 +96,7 @@ HighlightCell * StoreParameterController::reusableCell(int index, int type) {
   assert(type == k_standardCellType);
   assert(index >= 0);
   assert(index < k_totalNumberOfCell);
-  HighlightCell * cells[] = {&m_deleteColumn, &m_fillWithFormula};// {&m_deleteColumn, &m_fillWithFormula, &m_copyColumn, &m_importList};
+  HighlightCell * cells[] = {&m_deleteColumn, &m_fillWithFormula, &m_initializeColumn};// {&m_deleteColumn, &m_fillWithFormula, &m_copyColumn, &m_importList};
   return cells[index];
 }
 

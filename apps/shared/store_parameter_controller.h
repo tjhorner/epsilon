@@ -35,14 +35,15 @@ protected:
   SelectableTableView m_selectableTableView;
 private:
 #if COPY_IMPORT_LIST
-  constexpr static int k_totalNumberOfCell = 4;
+  constexpr static int k_totalNumberOfCell = 5;
   MessageTableCellWithChevron m_copyColumn;
   MessageTableCellWithChevron m_importList;
 #else
-  constexpr static int k_totalNumberOfCell = 2;
+  constexpr static int k_totalNumberOfCell = 3;
 #endif
   MessageTableCell m_deleteColumn;
   MessageTableCell m_fillWithFormula;
+  MessageTableCell m_initializeColumn;
   StoreController * m_storeController;
   bool m_xColumnSelected;
 };

@@ -57,7 +57,8 @@ StoreController::StoreController(Responder * parentResponder, DoublePairStore * 
   ButtonRowDelegate(header, nullptr),
   m_editableCells{},
   m_store(store),
-  m_contentView(m_store, this, this, this, this)
+  m_contentView(m_store, this, this, this, this),
+  m_isInitializing(false)
 {
   for (int i = 0; i < k_maxNumberOfEditableCells; i++) {
     m_editableCells[i].setParentResponder(m_contentView.dataView());
@@ -67,7 +68,14 @@ StoreController::StoreController(Responder * parentResponder, DoublePairStore * 
 }
 
 void StoreController::displayFormulaInput() {
+  m_isInitializing = false;
   setFormulaLabel();
+  m_contentView.displayFormulaInput(true);
+}
+
+void StoreController::initializeColumn() {
+  m_isInitializing = true;
+  static_cast<ContentView *>(view())->formulaInputView()->setBufferText("n =");
   m_contentView.displayFormulaInput(true);
 }
 
@@ -79,38 +87,55 @@ bool StoreController::textFieldShouldFinishEditing(TextField * textField, Ion::E
 }
 
 bool StoreController::textFieldDidFinishEditing(TextField * textField, const char * text, Ion::Events::Event event) {
-  if (textField == m_contentView.formulaInputView()->textField()) {
-    // Handle formula input
-    Expression expression = Expression::parse(textField->text());
-    if (expression.isUninitialized()) {
-      app()->displayWarning(I18n::Message::SyntaxError);
+  if(m_isInitializing) {
+    m_isInitializing = false;
+    m_contentView.displayFormulaInput(false);
+    AppsContainer * appsContainer = ((TextFieldDelegateApp *)app())->container();
+    Context * globalContext = appsContainer->globalContext();
+    double intBody = PoincareHelpers::ApproximateToScalar<double>(text, *globalContext);
+    int series = seriesAtColumn(selectedColumn());
+
+    m_store->deleteAllPairsOfSeries(series);
+    for(int i = 0; i < intBody; i++) {
+      m_store->set(0, series, 0, i);
+    }
+
+    selectableTableView()->reloadData();
+    return true;
+  } else {
+    if (textField == m_contentView.formulaInputView()->textField()) {
+      // Handle formula input
+      Expression expression = Expression::parse(textField->text());
+      if (expression.isUninitialized()) {
+        app()->displayWarning(I18n::Message::SyntaxError);
+        return false;
+      }
+      m_contentView.displayFormulaInput(false);
+      if (fillColumnWithFormula(expression)) {
+        app()->setFirstResponder(&m_contentView);
+      }
+      return true;
+    }
+    AppsContainer * appsContainer = ((TextFieldDelegateApp *)app())->container();
+    Context * globalContext = appsContainer->globalContext();
+    double floatBody = PoincareHelpers::ApproximateToScalar<double>(text, *globalContext);
+    if (std::isnan(floatBody) || std::isinf(floatBody)) {
+      app()->displayWarning(I18n::Message::UndefinedValue);
       return false;
     }
-    m_contentView.displayFormulaInput(false);
-    if (fillColumnWithFormula(expression)) {
-      app()->setFirstResponder(&m_contentView);
+    if (!setDataAtLocation(floatBody, selectedColumn(), selectedRow())) {
+      app()->displayWarning(I18n::Message::ForbiddenValue);
+      return false;
+    }
+    // FIXME Find out if redrawing errors can be suppressed without always reloading all the data
+    selectableTableView()->reloadData();
+    if (event == Ion::Events::EXE || event == Ion::Events::OK) {
+      selectableTableView()->selectCellAtLocation(selectedColumn(), selectedRow()+1);
+    } else {
+      selectableTableView()->handleEvent(event);
     }
     return true;
   }
-  AppsContainer * appsContainer = ((TextFieldDelegateApp *)app())->container();
-  Context * globalContext = appsContainer->globalContext();
-  double floatBody = PoincareHelpers::ApproximateToScalar<double>(text, *globalContext);
-  if (std::isnan(floatBody) || std::isinf(floatBody)) {
-    app()->displayWarning(I18n::Message::UndefinedValue);
-    return false;
-  }
-  if (!setDataAtLocation(floatBody, selectedColumn(), selectedRow())) {
-    app()->displayWarning(I18n::Message::ForbiddenValue);
-    return false;
-  }
-  // FIXME Find out if redrawing errors can be suppressed without always reloading all the data
-  selectableTableView()->reloadData();
-  if (event == Ion::Events::EXE || event == Ion::Events::OK) {
-    selectableTableView()->selectCellAtLocation(selectedColumn(), selectedRow()+1);
-  } else {
-    selectableTableView()->handleEvent(event);
-  }
-  return true;
 }
 
 bool StoreController::textFieldDidAbortEditing(TextField * textField) {

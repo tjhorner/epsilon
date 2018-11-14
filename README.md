@@ -13,6 +13,8 @@ Some of these improvements (so far) include:
 
 - Sample standard deviation in stats tab on Regression app
 - Residual standard deviation in stats tab on Regression app
+- "Initialize column" function for pairs
+  - This fills a column with a specified number of zeros
 
 Some planned improvements include:
 

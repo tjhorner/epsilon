@@ -1,5 +1,5 @@
-#ifndef ON_BOARDING_UPDATE_CONTROLLER_H
-#define ON_BOARDING_UPDATE_CONTROLLER_H
+#ifndef ON_BOARDING_POP_UP_CONTROLLER_H
+#define ON_BOARDING_POP_UP_CONTROLLER_H
 
 #include <escher.h>
 #include "../i18n.h"
@@ -8,9 +8,11 @@
 
 namespace OnBoarding {
 
-class UpdateController : public ViewController {
+#ifdef EPSILON_BOOT_PROMPT
+
+class PopUpController : public ViewController {
 public:
-  UpdateController();
+  PopUpController(I18n::Message * messages, KDColor * colors, uint8_t numberOfMessages);
   View * view() override { return &m_messageViewWithSkip; }
   bool handleEvent(Ion::Events::Event event) override;
 private:
@@ -30,6 +32,8 @@ private:
   };
   MessageViewWithSkip m_messageViewWithSkip;
 };
+
+#endif
 
 }
 

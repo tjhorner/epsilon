@@ -4,7 +4,6 @@
 #include "home/app.h"
 #include "on_boarding/app.h"
 #include "hardware_test/app.h"
-#include "on_boarding/update_controller.h"
 #include "usb/app.h"
 #include "apps_window.h"
 #include "empty_battery_window.h"
@@ -19,6 +18,10 @@
 #define USE_PIC_VIEW_APP 0
 #if USE_PIC_VIEW_APP
 #include "picview/picview_app.h"
+#endif
+
+#ifdef EPSILON_BOOT_PROMPT
+#include "on_boarding/pop_up_controller.h"
 #endif
 
 #include <ion/events.h>
@@ -45,7 +48,9 @@ public:
   void displayExamModePopUp(bool activate);
   void shutdownDueToLowBattery();
   void setShiftAlphaStatus(Ion::Events::ShiftAlphaStatus newStatus);
-  OnBoarding::UpdateController * updatePopUpController();
+#ifdef EPSILON_BOOT_PROMPT
+  OnBoarding::PopUpController * promptController();
+#endif
   void redrawWindow();
   // Exam pop-up controller delegate
   void examDeactivatingPopUpIsDismissed() override;
@@ -68,7 +73,9 @@ private:
   MathToolbox m_mathToolbox;
   VariableBoxController m_variableBoxController;
   ExamPopUpController m_examPopUpController;
-  OnBoarding::UpdateController m_updateController;
+#ifdef EPSILON_BOOT_PROMPT
+  OnBoarding::PopUpController m_promptController;
+#endif
   BatteryTimer m_batteryTimer;
   SuspendTimer m_suspendTimer;
   BacklightDimmingTimer m_backlightDimmingTimer;

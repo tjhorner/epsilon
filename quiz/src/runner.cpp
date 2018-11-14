@@ -13,8 +13,9 @@ void quiz_print(const char * message) {
 #else
   static int line_y = 0;
   KDContext * ctx = KDIonContext::sharedContext();
-  int line_height = KDText::stringSize("M").height();
-  ctx->drawString(message, KDPoint(0, line_y));
+  const KDFont * font = KDFont::LargeFont;
+  int line_height = font->glyphSize().height();
+  ctx->drawString(message, KDPoint(0, line_y), font);
   line_y += line_height;
   if (line_y > Ion::Display::Height) {
     line_y = 0;
@@ -55,7 +56,7 @@ void ion_main(int argc, char * argv[]) {
 #if POINCARE_TREE_LOG
     Poincare::TreePool::sharedPool()->log();
 #endif
-    assert(false);
+    quiz_assert(false);
 #if !QUIZ_USE_CONSOLE
     while (1) {
       Ion::msleep(1000);

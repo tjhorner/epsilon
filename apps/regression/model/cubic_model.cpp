@@ -2,6 +2,15 @@
 #include "../../shared/poincare_helpers.h"
 #include <math.h>
 #include <assert.h>
+#include <poincare/char_layout.h>
+#include <poincare/horizontal_layout.h>
+#include <poincare/vertical_offset_layout.h>
+#include <poincare/decimal.h>
+#include <poincare/number.h>
+#include <poincare/symbol.h>
+#include <poincare/addition.h>
+#include <poincare/multiplication.h>
+#include <poincare/power.h>
 
 using namespace Poincare;
 using namespace Shared;
@@ -11,27 +20,27 @@ namespace Regression {
 Layout CubicModel::layout() {
   if (m_layout.isUninitialized()) {
     const Layout layoutChildren[] = {
-      CharLayout('a', KDText::FontSize::Small),
-      CharLayout(Ion::Charset::MiddleDot, KDText::FontSize::Small),
-      CharLayout('X', KDText::FontSize::Small),
+      CharLayout('a', KDFont::SmallFont),
+      CharLayout(Ion::Charset::MiddleDot, KDFont::SmallFont),
+      CharLayout('X', KDFont::SmallFont),
       VerticalOffsetLayout(
-          CharLayout('3', KDText::FontSize::Small),
+          CharLayout('3', KDFont::SmallFont),
           VerticalOffsetLayoutNode::Type::Superscript
         ),
-      CharLayout('+', KDText::FontSize::Small),
-      CharLayout('b', KDText::FontSize::Small),
-      CharLayout(Ion::Charset::MiddleDot, KDText::FontSize::Small),
-      CharLayout('X', KDText::FontSize::Small),
+      CharLayout('+', KDFont::SmallFont),
+      CharLayout('b', KDFont::SmallFont),
+      CharLayout(Ion::Charset::MiddleDot, KDFont::SmallFont),
+      CharLayout('X', KDFont::SmallFont),
       VerticalOffsetLayout(
-          CharLayout('2', KDText::FontSize::Small),
+          CharLayout('2', KDFont::SmallFont),
           VerticalOffsetLayoutNode::Type::Superscript
         ),
-      CharLayout('+', KDText::FontSize::Small),
-      CharLayout('c', KDText::FontSize::Small),
-      CharLayout(Ion::Charset::MiddleDot, KDText::FontSize::Small),
-      CharLayout('X', KDText::FontSize::Small),
-      CharLayout('+', KDText::FontSize::Small),
-      CharLayout('d', KDText::FontSize::Small),
+      CharLayout('+', KDFont::SmallFont),
+      CharLayout('c', KDFont::SmallFont),
+      CharLayout(Ion::Charset::MiddleDot, KDFont::SmallFont),
+      CharLayout('X', KDFont::SmallFont),
+      CharLayout('+', KDFont::SmallFont),
+      CharLayout('d', KDFont::SmallFont),
     };
     m_layout = HorizontalLayout(layoutChildren, 15);
   }

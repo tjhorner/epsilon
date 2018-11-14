@@ -6,7 +6,7 @@
 
 namespace Poincare {
 
-class ImaginaryPartNode : public ExpressionNode  {
+class ImaginaryPartNode final : public ExpressionNode  {
 public:
 
   // TreeNode
@@ -27,7 +27,9 @@ private:
   // Simplification
   Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit) override;
   // Evaluation
-  template<typename T> static Complex<T> computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit);
+  template<typename T> static Complex<T> computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit) {
+    return Complex<T>(std::imag(c));
+  }
   Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
     return ApproximationHelper::Map<float>(this, context, angleUnit,computeOnComplex<float>);
   }
@@ -36,7 +38,7 @@ private:
   }
 };
 
-class ImaginaryPart : public Expression {
+class ImaginaryPart final : public Expression {
 public:
   ImaginaryPart();
   ImaginaryPart(const ImaginaryPartNode * n) : Expression(n) {}

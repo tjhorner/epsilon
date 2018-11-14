@@ -4,7 +4,7 @@
 #include <apps/i18n.h>
 #include <escher.h>
 #include <ion/events.h>
-#include <kandinsky/text.h>
+#include <kandinsky/font.h>
 
 namespace Code {
 
@@ -23,7 +23,7 @@ protected:
   // 13 = minimal string height size
   // 3 = vertical margins
 private:
-  constexpr static KDText::FontSize k_fontSize = KDText::FontSize::Small;
+  constexpr static const KDFont * k_font = KDFont::SmallFont;
   void scrollToLetter(char letter);
   void scrollToAndSelectChild(int i);
   MessageTableCellWithMessage m_leafCells[k_maxNumberOfDisplayedRows];

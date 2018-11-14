@@ -4,7 +4,8 @@
 extern "C" {
 #include <assert.h>
 }
-#include <poincare.h>
+#include <poincare/print_float.h>
+#include <poincare/preferences.h>
 
 using namespace Poincare;
 
@@ -40,35 +41,32 @@ void BatteryTestController::viewWillAppear() {
 }
 
 void BatteryTestController::updateBatteryState(float batteryLevel, bool batteryCharging) {
-  char bufferLevel[ContentView::k_maxNumberOfCharacters + PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits)];
+  constexpr size_t bufferLevelSize = ContentView::k_maxNumberOfCharacters + PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits);
+  char bufferLevel[bufferLevelSize];
   const char * legend = "Battery level: ";
-  int legendLength = strlen(legend);
-  strlcpy(bufferLevel, legend, legendLength+1);
+  int legendLength = strlcpy(bufferLevel, legend, bufferLevelSize);
   PrintFloat::convertFloatToText<float>(batteryLevel, bufferLevel+legendLength, PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits), Constant::LargeNumberOfSignificantDigits, Preferences::PrintFloatMode::Decimal);
   m_view.batteryLevelTextView()->setText(bufferLevel);
 
-  char bufferCharging[ContentView::k_maxNumberOfCharacters + PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits)];
+  constexpr size_t bufferChargingSize = ContentView::k_maxNumberOfCharacters + PrintFloat::bufferSizeForFloatsWithPrecision(Constant::LargeNumberOfSignificantDigits);
+  char bufferCharging[bufferChargingSize];
   int numberOfChars = 0;
   legend = "Battery charging: ";
-  legendLength = strlen(legend);
-  strlcpy(bufferCharging, legend, legendLength+1);
-  numberOfChars += legendLength;
+  numberOfChars += strlcpy(bufferCharging, legend, bufferChargingSize);
   legend = "no";
   if (batteryCharging) {
     legend = "yes";
   }
-  legendLength = strlen(legend);
-  strlcpy(bufferCharging+numberOfChars, legend, legendLength+1);
-  numberOfChars += legendLength;
+  numberOfChars += strlcpy(bufferCharging+numberOfChars, legend, bufferChargingSize);
   bufferCharging[numberOfChars] = 0;
   m_view.batteryChargingTextView()->setText(bufferCharging);
 }
 
 BatteryTestController::ContentView::ContentView() :
   SolidColorView(KDColorWhite),
-  m_batteryStateView(KDText::FontSize::Large),
-  m_batteryLevelView(KDText::FontSize::Small),
-  m_batteryChargingView(KDText::FontSize::Small)
+  m_batteryStateView(KDFont::LargeFont),
+  m_batteryLevelView(KDFont::SmallFont),
+  m_batteryChargingView(KDFont::SmallFont)
 {
 }
 
@@ -93,7 +91,7 @@ void BatteryTestController::ContentView::setColor(KDColor color) {
 
 void BatteryTestController::ContentView::layoutSubviews() {
   m_batteryStateView.setFrame(KDRect(0, 0, Ion::Display::Width, Ion::Display::Height/2));
-  KDSize textSize = KDText::charSize(KDText::FontSize::Small);
+  KDSize textSize = KDFont::SmallFont->glyphSize();
   m_batteryLevelView.setFrame(KDRect(0, Ion::Display::Height-2*textSize.height(), Ion::Display::Width, textSize.height()));
   m_batteryChargingView.setFrame(KDRect(0, Ion::Display::Height-textSize.height(), Ion::Display::Width, textSize.height()));
 }

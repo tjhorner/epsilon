@@ -1,6 +1,9 @@
 #include "exponential_model.h"
 #include <math.h>
 #include <assert.h>
+#include <poincare/char_layout.h>
+#include <poincare/horizontal_layout.h>
+#include <poincare/vertical_offset_layout.h>
 
 using namespace Poincare;
 
@@ -9,14 +12,14 @@ namespace Regression {
 Layout ExponentialModel::layout() {
   if (m_layout.isUninitialized()) {
     const Layout layoutChildren[] = {
-      CharLayout('a', KDText::FontSize::Small),
-      CharLayout(Ion::Charset::MiddleDot, KDText::FontSize::Small),
-      CharLayout('e', KDText::FontSize::Small),
+      CharLayout('a', KDFont::SmallFont),
+      CharLayout(Ion::Charset::MiddleDot, KDFont::SmallFont),
+      CharLayout('e', KDFont::SmallFont),
       VerticalOffsetLayout(
           HorizontalLayout(
-            CharLayout('b', KDText::FontSize::Small),
-            CharLayout(Ion::Charset::MiddleDot, KDText::FontSize::Small),
-            CharLayout('X', KDText::FontSize::Small)
+            CharLayout('b', KDFont::SmallFont),
+            CharLayout(Ion::Charset::MiddleDot, KDFont::SmallFont),
+            CharLayout('X', KDFont::SmallFont)
           ),
           VerticalOffsetLayoutNode::Type::Superscript
         )

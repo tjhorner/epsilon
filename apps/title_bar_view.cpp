@@ -4,14 +4,13 @@
 extern "C" {
 #include <assert.h>
 }
-#include <poincare.h>
 
 using namespace Poincare;
 
 TitleBarView::TitleBarView() :
   View(),
-  m_titleView(KDText::FontSize::Small, I18n::Message::Default, 0.5f, 0.5f, KDColorWhite, Palette::YellowDark),
-  m_preferenceView(KDText::FontSize::Small, 1.0f, 0.5, KDColorWhite, Palette::YellowDark)
+  m_titleView(KDFont::SmallFont, I18n::Message::Default, 0.5f, 0.5f, KDColorWhite, Palette::YellowDark),
+  m_preferenceView(KDFont::SmallFont, 1.0f, 0.5, KDColorWhite, Palette::YellowDark)
 {
   m_examModeIconView.setImage(ImageStore::ExamIcon);
 }
@@ -82,18 +81,17 @@ void TitleBarView::layoutSubviews() {
 }
 
 void TitleBarView::refreshPreferences() {
-  char buffer[13];
+  constexpr size_t bufferSize = 13;
+  char buffer[bufferSize];
   int numberOfChar = 0;
-  if (Preferences::sharedPreferences()->displayMode() == Preferences::PrintFloatMode::Scientific) {
-    strlcpy(buffer, I18n::translate(I18n::Message::Sci), strlen(I18n::translate(I18n::Message::Sci))+1);
-    numberOfChar += strlen(I18n::translate(I18n::Message::Sci));
+  Preferences * preferences = Preferences::sharedPreferences();
+  if (preferences->displayMode() == Preferences::PrintFloatMode::Scientific) {
+    numberOfChar += strlcpy(buffer, I18n::translate(I18n::Message::Sci), bufferSize);
   }
-  if (Preferences::sharedPreferences()->angleUnit() == Preferences::AngleUnit::Radian) {
-    strlcpy(buffer+numberOfChar, I18n::translate(I18n::Message::Rad), strlen(I18n::translate(I18n::Message::Rad))+1);
-    numberOfChar += strlen(I18n::translate(I18n::Message::Rad));
+  if (preferences->angleUnit() == Preferences::AngleUnit::Radian) {
+    numberOfChar += strlcpy(buffer+numberOfChar, I18n::translate(I18n::Message::Rad), bufferSize - numberOfChar);
   } else {
-    strlcpy(buffer+numberOfChar, I18n::translate(I18n::Message::Deg), strlen(I18n::translate(I18n::Message::Sci))+1);
-    numberOfChar += strlen(I18n::translate(I18n::Message::Deg));
+    numberOfChar += strlcpy(buffer+numberOfChar, I18n::translate(I18n::Message::Deg), bufferSize - numberOfChar);
   }
   buffer[numberOfChar] = 0;
   m_preferenceView.setText(buffer);

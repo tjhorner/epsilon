@@ -8,7 +8,7 @@
 
 namespace Poincare {
 
-class RealPartNode : public ExpressionNode  {
+class RealPartNode final : public ExpressionNode  {
 public:
 
   // TreeNode
@@ -32,7 +32,9 @@ private:
   // Simplification
   Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit) override;
   // Evaluation
-  template<typename T> static Complex<T> computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit);
+  template<typename T> static Complex<T> computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit) {
+    return Complex<T>(std::real(c));
+  }
   Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
     return ApproximationHelper::Map<float>(this, context, angleUnit,computeOnComplex<float>);
   }
@@ -41,7 +43,7 @@ private:
   }
 };
 
-class RealPart : public Expression {
+class RealPart final : public Expression {
 public:
   RealPart();
   RealPart(const RealPartNode * n) : Expression(n) {}

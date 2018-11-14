@@ -2,6 +2,9 @@
 #include "sequence_store.h"
 #include "cache_context.h"
 #include <poincare/layout_helper.h>
+#include <poincare/char_layout.h>
+#include <poincare/vertical_offset_layout.h>
+#include <poincare/integer.h>
 #include "../shared/poincare_helpers.h"
 #include <string.h>
 #include <cmath>
@@ -29,10 +32,11 @@ Sequence::Sequence(const char * text, KDColor color) :
 }
 
 uint32_t Sequence::checksum() {
-  char data[k_dataLengthInBytes/sizeof(char)] = {};
-  strlcpy(data, text(), TextField::maxBufferSize());
-  strlcpy(data+TextField::maxBufferSize(), firstInitialConditionText(), TextField::maxBufferSize());
-  strlcpy(data+2*TextField::maxBufferSize(), secondInitialConditionText(), TextField::maxBufferSize());
+  constexpr size_t dataSize = k_dataLengthInBytes/sizeof(char);
+  char data[dataSize] = {};
+  strlcpy(data, text(), dataSize);
+  strlcpy(data+TextField::maxBufferSize(), firstInitialConditionText(), dataSize - TextField::maxBufferSize());
+  strlcpy(data+2*TextField::maxBufferSize(), secondInitialConditionText(), dataSize - 2*TextField::maxBufferSize());
   int * intAdress = (int *)(&data[3*TextField::maxBufferSize()]);
   *intAdress = m_initialRank;
   data[k_dataLengthInBytes-3] = (char)m_type;
@@ -147,8 +151,8 @@ int Sequence::numberOfElements() {
 Poincare::Layout Sequence::nameLayout() {
   if (m_nameLayout.isUninitialized()) {
     m_nameLayout = HorizontalLayout(
-        CharLayout(name()[0], KDText::FontSize::Small),
-        VerticalOffsetLayout(CharLayout('n', KDText::FontSize::Small), VerticalOffsetLayoutNode::Type::Subscript)
+        CharLayout(name()[0], KDFont::SmallFont),
+        VerticalOffsetLayout(CharLayout('n', KDFont::SmallFont), VerticalOffsetLayoutNode::Type::Subscript)
       );
   }
   return m_nameLayout;
@@ -158,20 +162,20 @@ Poincare::Layout Sequence::definitionName() {
   if (m_definitionName.isUninitialized()) {
     if (m_type == Type::Explicit) {
       m_definitionName = HorizontalLayout(
-        CharLayout(name()[0], KDText::FontSize::Large),
-        VerticalOffsetLayout(LayoutHelper::String("n", 1, KDText::FontSize::Large), VerticalOffsetLayoutNode::Type::Subscript)
+        CharLayout(name()[0], KDFont::LargeFont),
+        VerticalOffsetLayout(LayoutHelper::String("n", 1, KDFont::LargeFont), VerticalOffsetLayoutNode::Type::Subscript)
       );
     }
     if (m_type == Type::SingleRecurrence) {
       m_definitionName = HorizontalLayout(
-        CharLayout(name()[0], KDText::FontSize::Large),
-        VerticalOffsetLayout(LayoutHelper::String("n+1", 3, KDText::FontSize::Large), VerticalOffsetLayoutNode::Type::Subscript)
+        CharLayout(name()[0], KDFont::LargeFont),
+        VerticalOffsetLayout(LayoutHelper::String("n+1", 3, KDFont::LargeFont), VerticalOffsetLayoutNode::Type::Subscript)
       );
     }
     if (m_type == Type::DoubleRecurrence) {
       m_definitionName = HorizontalLayout(
-        CharLayout(name()[0], KDText::FontSize::Large),
-        VerticalOffsetLayout(LayoutHelper::String("n+2", 3, KDText::FontSize::Large), VerticalOffsetLayoutNode::Type::Subscript)
+        CharLayout(name()[0], KDFont::LargeFont),
+        VerticalOffsetLayout(LayoutHelper::String("n+2", 3, KDFont::LargeFont), VerticalOffsetLayoutNode::Type::Subscript)
       );
     }
   }
@@ -185,9 +189,9 @@ Poincare::Layout Sequence::firstInitialConditionName() {
       && (m_type == Type::SingleRecurrence
        || m_type == Type::DoubleRecurrence))
   {
-    Layout indexLayout = LayoutHelper::String(buffer, strlen(buffer), KDText::FontSize::Large);
+    Layout indexLayout = LayoutHelper::String(buffer, strlen(buffer), KDFont::LargeFont);
     m_firstInitialConditionName = HorizontalLayout(
-        CharLayout(name()[0], KDText::FontSize::Large),
+        CharLayout(name()[0], KDFont::LargeFont),
         VerticalOffsetLayout(indexLayout, VerticalOffsetLayoutNode::Type::Subscript)
       );
   }
@@ -199,9 +203,9 @@ Poincare::Layout Sequence::secondInitialConditionName() {
   Integer(m_initialRank+1).serialize(buffer, k_initialRankNumberOfDigits+1);
   if (m_secondInitialConditionName.isUninitialized()) {
     if (m_type == Type::DoubleRecurrence) {
-      Layout indexLayout = LayoutHelper::String(buffer, strlen(buffer), KDText::FontSize::Large);
+      Layout indexLayout = LayoutHelper::String(buffer, strlen(buffer), KDFont::LargeFont);
       m_secondInitialConditionName = HorizontalLayout(
-        CharLayout(name()[0], KDText::FontSize::Large),
+        CharLayout(name()[0], KDFont::LargeFont),
         VerticalOffsetLayout(indexLayout, VerticalOffsetLayoutNode::Type::Subscript)
       );
     }
@@ -257,12 +261,13 @@ T Sequence::approximateToNextRank(int n, SequenceContext * sqctx) const {
   Poincare::Symbol vn1Symbol(Symbol::SpecialSymbols::vn1);
   Poincare::Symbol unSymbol(Symbol::SpecialSymbols::un);
   Poincare::Symbol un1Symbol(Symbol::SpecialSymbols::un1);
+  Preferences * preferences = Poincare::Preferences::sharedPreferences();
   switch (m_type) {
     case Type::Explicit:
     {
       ctx.setValueForSymbol(un, unSymbol);
       ctx.setValueForSymbol(vn, vnSymbol);
-      return expression(sqctx).approximateWithValueForSymbol(symbol(), (T)n, ctx, Poincare::Preferences::sharedPreferences()->angleUnit());
+      return expression(sqctx).approximateWithValueForSymbol(symbol(), (T)n, ctx, preferences->angleUnit());
     }
     case Type::SingleRecurrence:
     {
@@ -273,7 +278,7 @@ T Sequence::approximateToNextRank(int n, SequenceContext * sqctx) const {
       ctx.setValueForSymbol(unm1, unSymbol);
       ctx.setValueForSymbol(vn, vn1Symbol);
       ctx.setValueForSymbol(vnm1, vnSymbol);
-      return expression(sqctx).approximateWithValueForSymbol(symbol(), (T)(n-1), ctx, Poincare::Preferences::sharedPreferences()->angleUnit());
+      return expression(sqctx).approximateWithValueForSymbol(symbol(), (T)(n-1), ctx, preferences->angleUnit());
     }
     default:
     {
@@ -287,7 +292,7 @@ T Sequence::approximateToNextRank(int n, SequenceContext * sqctx) const {
       ctx.setValueForSymbol(unm2, unSymbol);
       ctx.setValueForSymbol(vnm1, vn1Symbol);
       ctx.setValueForSymbol(vnm2, vnSymbol);
-      return expression(sqctx).approximateWithValueForSymbol(symbol(), (T)(n-2), ctx, Poincare::Preferences::sharedPreferences()->angleUnit());
+      return expression(sqctx).approximateWithValueForSymbol(symbol(), (T)(n-2), ctx, preferences->angleUnit());
     }
   }
 }

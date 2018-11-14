@@ -3,11 +3,11 @@
 
 #include <poincare/layout_cursor.h>
 #include <poincare/layout.h>
-#include <kandinsky/text.h>
+#include <kandinsky/font.h>
 
 namespace Poincare {
 
-class IntegralLayoutNode : public LayoutNode {
+class IntegralLayoutNode final : public LayoutNode {
 public:
   constexpr static KDCoordinate k_symbolHeight = 4;
   constexpr static KDCoordinate k_symbolWidth = 4;
@@ -39,7 +39,7 @@ protected:
   KDCoordinate computeBaseline() override;
   KDPoint positionOfChild(LayoutNode * child) override;
 private:
-  constexpr static KDText::FontSize k_fontSize = KDText::FontSize::Large;
+  constexpr static const KDFont * k_font = KDFont::LargeFont;
   constexpr static KDCoordinate k_boundHeightMargin = 8;
   constexpr static KDCoordinate k_boundWidthMargin = 5;
   constexpr static KDCoordinate k_integrandWidthMargin = 2;
@@ -51,7 +51,7 @@ private:
   void render(KDContext * ctx, KDPoint p, KDColor expressionColor, KDColor backgroundColor) override;
 };
 
-class IntegralLayout : public Layout {
+class IntegralLayout final : public Layout {
 public:
   IntegralLayout(Layout integrand, Layout lowerBound, Layout upperBound) :
     Layout(TreePool::sharedPool()->createTreeNode<IntegralLayoutNode>())

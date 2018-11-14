@@ -8,7 +8,7 @@
 
 namespace Poincare {
 
-class AbsoluteValueNode : public ExpressionNode {
+class AbsoluteValueNode final : public ExpressionNode {
 public:
   // TreeNode
   size_t size() const override { return sizeof(AbsoluteValueNode); }
@@ -25,7 +25,9 @@ public:
   Expression setSign(Sign s, Context & context, Preferences::AngleUnit angleUnit) override;
 
   // Approximation
-  template<typename T> static Complex<T> computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit);
+  template<typename T> static Complex<T> computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit) {
+    return Complex<T>(std::abs(c));
+  }
   Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
     return ApproximationHelper::Map<float>(this, context, angleUnit, computeOnComplex<float>);
   }
@@ -43,7 +45,7 @@ public:
   Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit) override;
 };
 
-class AbsoluteValue : public Expression {
+class AbsoluteValue final : public Expression {
 friend class AbsoluteValueNode;
 public:
   AbsoluteValue();

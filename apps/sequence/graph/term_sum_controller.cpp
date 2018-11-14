@@ -1,6 +1,9 @@
 #include "term_sum_controller.h"
 #include "../../shared/text_field_delegate.h"
 #include "../app.h"
+#include <poincare/char_layout.h>
+#include <poincare/horizontal_layout.h>
+#include <poincare/vertical_offset_layout.h>
 
 #include <cmath>
 
@@ -48,9 +51,9 @@ double TermSumController::cursorNextStep(double x, int direction) {
 
 Layout TermSumController::createFunctionLayout(const char * functionName) {
   return HorizontalLayout(
-      CharLayout(functionName[0], KDText::FontSize::Small),
+      CharLayout(functionName[0], KDFont::SmallFont),
         VerticalOffsetLayout(
-          CharLayout('n', KDText::FontSize::Small),
+          CharLayout('n', KDFont::SmallFont),
           VerticalOffsetLayoutNode::Type::Subscript
         )
       );

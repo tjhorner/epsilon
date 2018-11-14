@@ -3,6 +3,8 @@
 #include "../shared/poincare_helpers.h"
 #include <string.h>
 #include <cmath>
+#include <poincare/symbol.h>
+#include <poincare/undefined.h>
 
 using namespace Poincare;
 using namespace Shared;
@@ -142,7 +144,8 @@ Calculation::EqualSign Calculation::exactAndApproximateDisplayedOutputsAreEqual(
     return m_equalSign;
   }
   char buffer[k_printedExpressionSize];
-  m_equalSign = exactOutput(context).isEqualToItsApproximationLayout(approximateOutput(context), buffer, k_printedExpressionSize, Preferences::sharedPreferences()->angleUnit(), Preferences::sharedPreferences()->displayMode(), Preferences::sharedPreferences()->numberOfSignificantDigits(), *context) ? EqualSign::Equal : EqualSign::Approximation;
+  Preferences * preferences = Preferences::sharedPreferences();
+  m_equalSign = exactOutput(context).isEqualToItsApproximationLayout(approximateOutput(context), buffer, k_printedExpressionSize, preferences->angleUnit(), preferences->displayMode(), preferences->numberOfSignificantDigits(), *context) ? EqualSign::Equal : EqualSign::Approximation;
   return m_equalSign;
 }
 

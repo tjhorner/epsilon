@@ -59,8 +59,8 @@ StoreController::StoreController(Responder * parentResponder, InputEventHandlerD
   EditableCellTableViewController(parentResponder),
   ButtonRowDelegate(header, nullptr),
   m_editableCells{},
-  m_store(store),
   m_isInitializing(false),
+  m_store(store),
   m_contentView(m_store, this, this, this, inputEventHandlerDelegate, this)
 {
   for (int i = 0; i < k_maxNumberOfEditableCells; i++) {
@@ -117,7 +117,7 @@ bool StoreController::textFieldDidFinishEditing(TextField * textField, const cha
   } else {
     if (textField == m_contentView.formulaInputView()->textField()) {
       // Handle formula input
-      Expression expression = Expression::parse(textField->text());
+      Expression expression = Expression::Parse(textField->text());
       if (expression.isUninitialized()) {
         app()->displayWarning(I18n::Message::SyntaxError);
         return false;

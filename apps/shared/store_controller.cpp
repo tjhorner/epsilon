@@ -60,12 +60,8 @@ StoreController::StoreController(Responder * parentResponder, InputEventHandlerD
   ButtonRowDelegate(header, nullptr),
   m_editableCells{},
   m_store(store),
-<<<<<<< HEAD
-  m_contentView(m_store, this, this, this, this),
-  m_isInitializing(false)
-=======
+  m_isInitializing(false),
   m_contentView(m_store, this, this, this, inputEventHandlerDelegate, this)
->>>>>>> 3cb765c66ddccbad8cd45e5a6262dab369f582b1
 {
   for (int i = 0; i < k_maxNumberOfEditableCells; i++) {
     m_editableCells[i].setParentResponder(m_contentView.dataView());
@@ -97,7 +93,7 @@ bool StoreController::textFieldDidFinishEditing(TextField * textField, const cha
   if(m_isInitializing) {
     m_isInitializing = false;
   }
-  
+
   if (textField == m_contentView.formulaInputView()->textField()) {
     // Handle formula input
     Expression expression = Expression::Parse(textField->text());

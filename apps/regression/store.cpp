@@ -43,28 +43,6 @@ void Store::setSeriesRegressionType(int series, Model::Type type) {
   }
 }
 
-int Store::closestVerticalRegression(int direction, double x, double y, int currentRegressionSeries, Poincare::Context * globalContext) {
-  int regressionSeries = -1;
-  float closestDistance = INFINITY;
-  /* The conditions to test on all the regressions are in this order:
-   * - the current regression is not the current regression
-   * - the next regression point should be within the window abscissa bounds
-   * - it is the closest one in abscissa to x
-   * - it is above y if direction > 0 and below otherwise */
-  for (int series = 0; series < k_numberOfSeries; series ++) {
-    if (!seriesIsEmpty(series) && series != currentRegressionSeries) {
-      double regressionY = yValueForXValue(series, x, globalContext);
-      if ((m_yMin <= regressionY && regressionY <= m_yMax)
-          && (std::fabs(regressionY - y) < closestDistance)
-          && (regressionY - y > 0) == (direction > 0)) {
-        closestDistance = std::fabs(regressionY - y);
-        regressionSeries = series;
-      }
-    }
-  }
-  return regressionSeries;
-}
-
 /* Dots */
 
 int Store::closestVerticalDot(int direction, double x, double y, int currentSeries, int currentDot, int * nextSeries, Poincare::Context * globalContext) {

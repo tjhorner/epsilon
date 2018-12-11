@@ -1,17 +1,26 @@
 #include <poincare/arc_sine.h>
 #include <poincare/complex.h>
 #include <poincare/layout_helper.h>
+#include <poincare/serialization_helper.h>
 #include <poincare/simplification_helper.h>
 #include <cmath>
 
 namespace Poincare {
 
+constexpr Expression::FunctionHelper ArcSine::s_functionHelper;
+
+int ArcSineNode::numberOfChildren() const { return ArcSine::s_functionHelper.numberOfChildren(); }
+
 Layout ArcSineNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
-  return LayoutHelper::Prefix(ArcSine(this), floatDisplayMode, numberOfSignificantDigits, name());
+  return LayoutHelper::Prefix(ArcSine(this), floatDisplayMode, numberOfSignificantDigits, ArcSine::s_functionHelper.name());
 }
 
-Expression ArcSineNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
-  return ArcSine(this).shallowReduce(context, angleUnit);
+int ArcSineNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
+  return SerializationHelper::Prefix(this, buffer, bufferSize, floatDisplayMode, numberOfSignificantDigits, ArcSine::s_functionHelper.name());
+}
+
+Expression ArcSineNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return ArcSine(this).shallowReduce(context, angleUnit, target);
 }
 
 template<typename T>
@@ -29,9 +38,7 @@ Complex<T> ArcSineNode::computeOnComplex(const std::complex<T> c, Preferences::A
   return Complex<T>(Trigonometry::ConvertRadianToAngleUnit(result, angleUnit));
 }
 
-ArcSine::ArcSine() : Expression(TreePool::sharedPool()->createTreeNode<ArcSineNode>()) {}
-
-Expression ArcSine::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression ArcSine::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   {
     Expression e = Expression::defaultShallowReduce(context, angleUnit);
     if (e.isUndefined()) {
@@ -43,7 +50,7 @@ Expression ArcSine::shallowReduce(Context & context, Preferences::AngleUnit angl
     return SimplificationHelper::Map(*this, context, angleUnit);
   }
 #endif
-  return Trigonometry::shallowReduceInverseFunction(*this, context, angleUnit);
+  return Trigonometry::shallowReduceInverseFunction(*this, context, angleUnit, target);
 }
 
 }

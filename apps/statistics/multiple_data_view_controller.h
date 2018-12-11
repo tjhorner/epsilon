@@ -7,13 +7,13 @@
 
 namespace Statistics {
 
-class MultipleDataViewController : public ViewController, public AlternateEmptyViewDelegate {
+class MultipleDataViewController : public ViewController, public AlternateEmptyViewDefaultDelegate {
 
 public:
   MultipleDataViewController(Responder * parentResponder, Store * store, int * m_selectedBarIndex, int * selectedSeriesIndex);
   virtual MultipleDataView * multipleDataView() = 0;
   int selectedSeriesIndex() const { return *m_selectedSeriesIndex; }
-  // AlternateEmptyViewDelegate
+  // AlternateEmptyViewDefaultDelegate
   bool isEmpty() const override;
   I18n::Message emptyMessage() override;
   Responder * defaultController() override;
@@ -24,9 +24,10 @@ public:
 
   // Responder
   bool handleEvent(Ion::Events::Event event) override;
-  void didBecomeFirstResponder() override;
+  void didEnterResponderChain(Responder * previousFirstResponder) override;
   void willExitResponderChain(Responder * nextFirstResponder) override;
 protected:
+  virtual void highlightSelection() {}
   virtual Responder * tabController() const = 0;
   virtual void reloadBannerView() = 0;
   virtual bool moveSelectionHorizontally(int deltaIndex) = 0;

@@ -65,13 +65,20 @@ bool CharLayoutNode::isCollapsable(int * numberOfOpenParenthesis, bool goingLeft
   return true;
 }
 
+bool CharLayoutNode::canBeOmittedMultiplicationRightFactor() const {
+  if (m_char == '!') {
+    return false;
+  }
+  return LayoutNode::canBeOmittedMultiplicationRightFactor();
+}
+
 // Sizing and positioning
 KDSize CharLayoutNode::computeSize() {
   return m_font->glyphSize();
 }
 
 KDCoordinate CharLayoutNode::computeBaseline() {
-  return (m_font->glyphSize().height()+1)/2; //TODO +1 ?
+  return m_font->glyphSize().height()/2;
 }
 
 void CharLayoutNode::render(KDContext * ctx, KDPoint p, KDColor expressionColor, KDColor backgroundColor) {

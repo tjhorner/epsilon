@@ -39,7 +39,7 @@ static inline void ion_main_inner() {
   quiz_print("ALL TESTS FINISHED");
 #if !QUIZ_USE_CONSOLE
   while (1) {
-    Ion::msleep(1000);
+    Ion::Timing::msleep(1000);
   }
 #endif
 }
@@ -52,14 +52,14 @@ void ion_main(int argc, char * argv[]) {
   if (ExceptionRun(ecp)) {
     ion_main_inner();
   } else {
-    // There has been a memeory allocation problem
+    // There has been a memory allocation problem
 #if POINCARE_TREE_LOG
     Poincare::TreePool::sharedPool()->log();
 #endif
     quiz_assert(false);
 #if !QUIZ_USE_CONSOLE
     while (1) {
-      Ion::msleep(1000);
+      Ion::Timing::msleep(1000);
     }
 #endif
   }

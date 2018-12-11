@@ -1,13 +1,22 @@
 #include <poincare/arc_tangent.h>
 #include <poincare/complex.h>
 #include <poincare/layout_helper.h>
+#include <poincare/serialization_helper.h>
 #include <poincare/simplification_helper.h>
 #include <cmath>
 
 namespace Poincare {
 
+constexpr Expression::FunctionHelper ArcTangent::s_functionHelper;
+
+int ArcTangentNode::numberOfChildren() const { return ArcTangent::s_functionHelper.numberOfChildren(); }
+
 Layout ArcTangentNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
-  return LayoutHelper::Prefix(ArcTangent(this), floatDisplayMode, numberOfSignificantDigits, name());
+  return LayoutHelper::Prefix(ArcTangent(this), floatDisplayMode, numberOfSignificantDigits, ArcTangent::s_functionHelper.name());
+}
+
+int ArcTangentNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
+  return SerializationHelper::Prefix(this, buffer, bufferSize, floatDisplayMode, numberOfSignificantDigits, ArcTangent::s_functionHelper.name());
 }
 
 template<typename T>
@@ -25,13 +34,11 @@ Complex<T> ArcTangentNode::computeOnComplex(const std::complex<T> c, Preferences
   return Complex<T>(Trigonometry::ConvertRadianToAngleUnit(result, angleUnit));
 }
 
-Expression ArcTangentNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
-  return ArcTangent(this).shallowReduce(context, angleUnit);
+Expression ArcTangentNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return ArcTangent(this).shallowReduce(context, angleUnit, target);
 }
 
-ArcTangent::ArcTangent() : Expression(TreePool::sharedPool()->createTreeNode<ArcTangentNode>()) {}
-
-Expression ArcTangent::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression ArcTangent::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   {
     Expression e = Expression::defaultShallowReduce(context, angleUnit);
     if (e.isUndefined()) {
@@ -43,7 +50,7 @@ Expression ArcTangent::shallowReduce(Context & context, Preferences::AngleUnit a
     return SimplificationHelper::Map(*this, context, angleUnit);
   }
 #endif
-  return Trigonometry::shallowReduceInverseFunction(*this, context, angleUnit);
+  return Trigonometry::shallowReduceInverseFunction(*this, context, angleUnit, target);
 }
 
 }

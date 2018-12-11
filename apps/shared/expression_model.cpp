@@ -28,7 +28,7 @@ Poincare::Expression ExpressionModel::expression(Poincare::Context * context) co
 
 Layout ExpressionModel::layout() {
   if (m_layout.isUninitialized()) {
-    Expression nonSimplifiedExpression = Expression::parse(m_text);
+    Expression nonSimplifiedExpression = Expression::Parse(m_text);
     m_layout = PoincareHelpers::CreateLayout(nonSimplifiedExpression);
   }
   return m_layout;

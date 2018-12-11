@@ -63,6 +63,8 @@ _do_load_from_lexer \
 _fun_bc_call \
 _fun_builtin_var_call \
 _main \
+_micropython_port_interruptible_msleep \
+_micropython_port_should_interrupt \
 _micropython_port_vm_hook_loop \
 _mp_builtin___import__ \
 _mp_builtin_input \
@@ -71,7 +73,8 @@ _mp_call_function_n_kw \
 _mp_execute_bytecode \
 _mp_hal_input \
 _mp_import_name \
-_mp_parse_compile_execute
+_mp_parse_compile_execute \
+_msleep
 
 EMTERPRETIFY_WHITELIST = $(foreach sym,$(EMSCRIPTEN_ASYNC_SYMBOLS),"$(sym)",)END
 EMFLAGS = -s PRECISE_F32=1 -s EMTERPRETIFY=1 -s EMTERPRETIFY_ASYNC=1 -s EMTERPRETIFY_WHITELIST='[$(EMTERPRETIFY_WHITELIST:,END=)]'
@@ -80,9 +83,10 @@ ifeq ($(DEBUG),1)
 EMFLAGS += --profiling-funcs
 EMFLAGS += -s ASSERTIONS=1
 EMFLAGS += -s SAFE_HEAP=1
+EMFLAGS += -s STACK_OVERFLOW_CHECK=1
 endif
 
-EMFLAGS += -s MODULARIZE=1 -s 'EXPORT_NAME="Epsilon"'
+EMFLAGS += -s WASM=0 -s MODULARIZE=1 -s 'EXPORT_NAME="Epsilon"'
 
 SFLAGS += $(EMFLAGS)
-LDFLAGS += $(EMFLAGS) -Oz -s EXPORTED_FUNCTIONS='["_main", "_IonEventsEmscriptenKeyDown", "_IonEventsEmscriptenKeyUp", "_IonEventsEmscriptenPushEvent", "_IonSoftwareVersion", "_IonPatchLevel"]'
+LDFLAGS += $(EMFLAGS) -Oz -s EXPORTED_FUNCTIONS='["_main", "_IonEventsEmscriptenKeyDown", "_IonEventsEmscriptenKeyUp", "_IonEventsEmscriptenPushEvent", "_IonSoftwareVersion", "_IonPatchLevel"]' -s EXTRA_EXPORTED_RUNTIME_METHODS='["Pointer_stringify"]'

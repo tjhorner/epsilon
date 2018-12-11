@@ -8,7 +8,7 @@ extern "C" {
 
 namespace Code {
 
-static constexpr int catalogChildrenCount = 95;
+static constexpr int catalogChildrenCount = 96;
 static constexpr int MathModuleChildrenCount = 43;
 static constexpr int KandinskyModuleChildrenCount = 7;
 static constexpr int CMathModuleChildrenCount = 13;
@@ -177,6 +177,7 @@ const ToolboxMessageTree catalogChildren[catalogChildrenCount] = {
   ToolboxMessageTree(I18n::Message::PythonCommandConstantE, I18n::Message::PythonConstantE, I18n::Message::PythonCommandConstantE),
   ToolboxMessageTree(I18n::Message::PythonCommandErf, I18n::Message::PythonErf, I18n::Message::PythonCommandErf),
   ToolboxMessageTree(I18n::Message::PythonCommandErfc, I18n::Message::PythonErfc, I18n::Message::PythonCommandErfc),
+  ToolboxMessageTree(I18n::Message::PythonCommandEval, I18n::Message::PythonEval, I18n::Message::PythonCommandEval),
   ToolboxMessageTree(I18n::Message::PythonCommandExp, I18n::Message::PythonExp, I18n::Message::PythonCommandExp),
   ToolboxMessageTree(I18n::Message::PythonCommandExpm1, I18n::Message::PythonExpm1, I18n::Message::PythonCommandExpm1),
   ToolboxMessageTree(I18n::Message::PythonCommandFabs, I18n::Message::PythonFabs, I18n::Message::PythonCommandFabs),
@@ -256,7 +257,7 @@ const ToolboxMessageTree toolboxModel = ToolboxMessageTree(I18n::Message::Toolbo
 
 
 PythonToolbox::PythonToolbox() :
-  Toolbox(nullptr, I18n::translate(rootModel()->label()))
+  Toolbox(nullptr, rootModel()->label())
 {
 }
 
@@ -288,9 +289,9 @@ KDCoordinate PythonToolbox::rowHeight(int j) {
   return Toolbox::rowHeight(j);
 }
 
-bool PythonToolbox::selectLeaf(ToolboxMessageTree * selectedMessageTree) {
+bool PythonToolbox::selectLeaf(int selectedRow) {
   m_selectableTableView.deselectTable();
-  ToolboxMessageTree * node = selectedMessageTree;
+  ToolboxMessageTree * node = (ToolboxMessageTree *)m_messageTreeModel->children(selectedRow);
   const char * editedText = I18n::translate(node->insertedText());
   int strippedEditedTextMaxLength = strlen(editedText)+1;
   char strippedEditedText[k_maxMessageSize];

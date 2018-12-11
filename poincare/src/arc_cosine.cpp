@@ -1,17 +1,26 @@
 #include <poincare/arc_cosine.h>
 #include <poincare/complex.h>
 #include <poincare/layout_helper.h>
+#include <poincare/serialization_helper.h>
 #include <poincare/simplification_helper.h>
 #include <cmath>
 
 namespace Poincare {
 
+constexpr Expression::FunctionHelper ArcCosine::s_functionHelper;
+
+int ArcCosineNode::numberOfChildren() const { return ArcCosine::s_functionHelper.numberOfChildren(); }
+
 Layout ArcCosineNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
-  return LayoutHelper::Prefix(ArcCosine(this), floatDisplayMode, numberOfSignificantDigits, name());
+  return LayoutHelper::Prefix(ArcCosine(this), floatDisplayMode, numberOfSignificantDigits, ArcCosine::s_functionHelper.name());
 }
 
-Expression ArcCosineNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
-  return ArcCosine(this).shallowReduce(context, angleUnit);
+int ArcCosineNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
+  return SerializationHelper::Prefix(this, buffer, bufferSize, floatDisplayMode, numberOfSignificantDigits, ArcCosine::s_functionHelper.name());
+}
+
+Expression ArcCosineNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return ArcCosine(this).shallowReduce(context, angleUnit, target);
 }
 
 template<typename T>
@@ -29,9 +38,7 @@ Complex<T> ArcCosineNode::computeOnComplex(const std::complex<T> c, Preferences:
   return Complex<T>(Trigonometry::ConvertRadianToAngleUnit(result, angleUnit));
 }
 
-ArcCosine::ArcCosine() : Expression(TreePool::sharedPool()->createTreeNode<ArcCosineNode>()) {}
-
-Expression ArcCosine::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression ArcCosine::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   {
     Expression e = Expression::defaultShallowReduce(context, angleUnit);
     if (e.isUndefined()) {
@@ -43,7 +50,7 @@ Expression ArcCosine::shallowReduce(Context & context, Preferences::AngleUnit an
     return SimplificationHelper::Map(*this, context, angleUnit);
   }
 #endif
-  return Trigonometry::shallowReduceInverseFunction(*this, context, angleUnit);
+  return Trigonometry::shallowReduceInverseFunction(*this, context, angleUnit, target);
 }
 
 }

@@ -15,12 +15,12 @@ extern "C" {
 
 namespace Poincare {
 
-void StoreNode::deepReduceChildren(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+void StoreNode::deepReduceChildren(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   return;
 }
 
-Expression StoreNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Store(this).shallowReduce(context, angleUnit);
+Expression StoreNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Store(this).shallowReduce(context, complexFormat, angleUnit, target);
 }
 
 int StoreNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -36,7 +36,7 @@ Layout StoreNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int
 }
 
 template<typename T>
-Evaluation<T> StoreNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
+Evaluation<T> StoreNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   /* If we are here, it means that the store node was not shallowReduced.
    * Otherwise, it would have been replaced by its symbol. We thus have to
    * setExpressionForSymbol. */
@@ -47,10 +47,10 @@ Evaluation<T> StoreNode::templatedApproximate(Context& context, Preferences::Ang
   if (e.isUninitialized()) {
     return Complex<T>::Undefined();
   }
-  return e.approximateToEvaluation<T>(context, angleUnit);
+  return e.node()->approximate(T(), context, complexFormat, angleUnit);
 }
 
-Expression Store::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression Store::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   Expression finalValue;
   if (symbol().type() == ExpressionNode::Type::Function) {
     // In tata + 2 ->f(tata), replace tata with xUnknown symbol
@@ -75,6 +75,20 @@ Expression Store::shallowReduce(Context & context, Preferences::AngleUnit angleU
     Symbol xUnknown = Symbol(Symbol::SpecialSymbols::UnknownX);
     e = e.replaceSymbolWithExpression(xUnknown, static_cast<Symbol &>(userDefinedUnknown));
   }
+
+  /* We want to replace the store with its reduced left side. If the
+   * simplification of the left side failed, just replace with the left side of
+   * the store without simplifying it.
+   * The simplification fails for [x]->d(x) for instance, because we do not
+   * have exact simplification of matrices yet. */
+  bool interruptedSimplification = SimplificationHasBeenInterrupted();
+  Expression reducedE = e.clone().deepReduce(context, complexFormat, angleUnit, target);
+  if (!reducedE.isUninitialized() && !SimplificationHasBeenInterrupted()) {
+    e = reducedE;
+  }
+  // Restore the previous interruption flag
+  SetInterruption(interruptedSimplification);
+
   replaceWithInPlace(e);
   return e;
 }

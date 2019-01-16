@@ -98,7 +98,7 @@ int RationalNode::serialize(char * buffer, int bufferSize, Preferences::PrintFlo
 
 // Expression subclassing
 
-Expression RationalNode::setSign(Sign s, Context & context, Preferences::AngleUnit angleUnit) {
+Expression RationalNode::setSign(Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
   return Rational(this).setSign(s);
 }
 
@@ -124,10 +124,10 @@ template<typename T> T RationalNode::templatedApproximate() const {
 // Comparison
 
 int RationalNode::NaturalOrder(const RationalNode * i, const RationalNode * j) {
-  if (i->sign() == Sign::Negative && j->sign() == Sign::Positive) {
+  if (Number(i).sign() == Sign::Negative && Number(j).sign() == Sign::Positive) {
     return -1;
   }
-  if (i->sign() == Sign::Positive && j->sign() == Sign::Negative) {
+  if (Number(i).sign() == Sign::Positive && Number(j).sign() == Sign::Negative) {
     return 1;
   }
   Integer i1 = Integer::Multiplication(i->signedNumerator(), j->denominator());
@@ -135,7 +135,10 @@ int RationalNode::NaturalOrder(const RationalNode * i, const RationalNode * j) {
   return Integer::NaturalOrder(i1, i2);
 }
 
-int RationalNode::simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const {
+int RationalNode::simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const {
+  if (!ascending) {
+    return e->simplificationOrderSameType(this, true, canBeInterrupted);
+  }
   assert(e->type() == ExpressionNode::Type::Rational);
   const RationalNode * other = static_cast<const RationalNode *>(e);
   return NaturalOrder(this, other);
@@ -143,16 +146,16 @@ int RationalNode::simplificationOrderSameType(const ExpressionNode * e, bool can
 
 // Simplification
 
-Expression RationalNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Rational(this).shallowReduce(context, angleUnit);
+Expression RationalNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Rational(this).shallowReduce();
 }
 
-Expression RationalNode::shallowBeautify(Context & context, Preferences::AngleUnit angleUnit) {
-  return Rational(this).shallowBeautify(context, angleUnit);
+Expression RationalNode::shallowBeautify(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Rational(this).shallowBeautify();
 }
 
-Expression RationalNode::denominator(Context & context, Preferences::AngleUnit angleUnit) const {
-  return Rational(this).denominator(context, angleUnit);
+Expression RationalNode::denominator(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  return Rational(this).denominator(context, complexFormat, angleUnit);
 }
 
 /* Rational  */
@@ -233,7 +236,7 @@ Rational::Rational(const native_uint_t * i, uint8_t numeratorSize, const native_
   static_cast<RationalNode *>(node())->setDigits(i, numeratorSize, j, denominatorSize, negative);
 }
 
-Expression Rational::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression Rational::shallowReduce() {
   // FIXME:
   /* Infinite Rational should not exist as they aren't parsed and are supposed
    * to be turn in Float if they should appear. We assert(false) so far, but
@@ -247,7 +250,7 @@ Expression Rational::shallowReduce(Context & context, Preferences::AngleUnit ang
   // Turn into Infinite if the numerator is too big.
   if (unsignedIntegerNumerator().isInfinity()) {
     assert(false);
-    return Infinity(sign() == ExpressionNode::Sign::Negative);
+    return Infinity(sign(&context) == ExpressionNode::Sign::Negative);
   }
   // Turn into 0 if the denominator is too big.
   if (integerDenominator().isInfinity()) {
@@ -259,7 +262,7 @@ Expression Rational::shallowReduce(Context & context, Preferences::AngleUnit ang
   return *this;
 }
 
-Expression Rational::shallowBeautify(Context & context, Preferences::AngleUnit angleUnit) {
+Expression Rational::shallowBeautify() {
   if (sign() == ExpressionNode::Sign::Negative) {
     Expression abs = setSign(ExpressionNode::Sign::Positive);
     Opposite o;
@@ -270,7 +273,7 @@ Expression Rational::shallowBeautify(Context & context, Preferences::AngleUnit a
   return *this;
 }
 
-Expression Rational::denominator(Context & context, Preferences::AngleUnit angleUnit) const {
+Expression Rational::denominator(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   Integer d = integerDenominator();
   if (d.isOne()) {
     return Expression();
@@ -287,6 +290,7 @@ Expression Rational::setSign(ExpressionNode::Sign s) {
   return *this;
 }
 
+template float RationalNode::templatedApproximate() const;
 template double RationalNode::templatedApproximate() const;
 
 }

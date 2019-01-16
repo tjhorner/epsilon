@@ -27,14 +27,14 @@ int PredictionIntervalNode::serialize(char * buffer, int bufferSize, Preferences
 }
 
 
-Expression PredictionIntervalNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return PredictionInterval(this).shallowReduce(context, angleUnit, target);
+Expression PredictionIntervalNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return PredictionInterval(this).shallowReduce(context, complexFormat, angleUnit, target);
 }
 
 template<typename T>
-Evaluation<T> PredictionIntervalNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
-  Evaluation<T> pInput = childAtIndex(0)->approximate(T(), context, angleUnit);
-  Evaluation<T> nInput = childAtIndex(1)->approximate(T(), context, angleUnit);
+Evaluation<T> PredictionIntervalNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  Evaluation<T> pInput = childAtIndex(0)->approximate(T(), context, complexFormat, angleUnit);
+  Evaluation<T> nInput = childAtIndex(1)->approximate(T(), context, complexFormat, angleUnit);
   T p = static_cast<Complex<T> &>(pInput).toScalar();
   T n = static_cast<Complex<T> &>(nInput).toScalar();
   if (std::isnan(p) || std::isnan(n) || n != (int)n || n < 0 || p < 0 || p > 1) {
@@ -46,9 +46,9 @@ Evaluation<T> PredictionIntervalNode::templatedApproximate(Context& context, Pre
   return MatrixComplex<T>(operands, 1, 2);
 }
 
-Expression PredictionInterval::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+Expression PredictionInterval::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }
@@ -102,7 +102,7 @@ Expression PredictionInterval::shallowReduce(Context & context, Preferences::Ang
   matrix.addChildAtIndexInPlace(Addition(r0.clone(), m), 1, 1);
   matrix.setDimensions(1, 2);
   replaceWithInPlace(matrix);
-  matrix.deepReduceChildren(context, angleUnit, target);
+  matrix.deepReduceChildren(context, complexFormat, angleUnit, target);
   return matrix;
 }
 

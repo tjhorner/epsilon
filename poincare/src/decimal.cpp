@@ -56,11 +56,14 @@ size_t DecimalNode::size() const {
   return DecimalSize(m_numberOfDigitsInMantissa);
 }
 
-Expression DecimalNode::setSign(Sign s, Context & context, Preferences::AngleUnit angleUnit) {
-  return Decimal(this).setSign(s, context, angleUnit);
+Expression DecimalNode::setSign(Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Decimal(this).setSign(s);
 }
 
-int DecimalNode::simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const {
+int DecimalNode::simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const {
+  if (!ascending) {
+    return e->simplificationOrderSameType(this, true, canBeInterrupted);
+  }
   assert(e->type() == Type::Decimal);
   const DecimalNode * other = static_cast<const DecimalNode *>(e);
   if (m_negative && !other->m_negative) {
@@ -82,15 +85,15 @@ int DecimalNode::simplificationOrderSameType(const ExpressionNode * e, bool canB
     double approx1 = other->templatedApproximate<double>();
     return (approx0 == approx1 ? 0 : (approx0 < approx1 ? -1 : 1));
   }
-  return ((int)sign())*unsignedComparison;
+  return ((int)Number(this).sign())*unsignedComparison;
 }
 
-Expression DecimalNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Decimal(this).shallowReduce(context, angleUnit);
+Expression DecimalNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Decimal(this).shallowReduce();
 }
 
-Expression DecimalNode::shallowBeautify(Context & context, Preferences::AngleUnit angleUnit) {
-  return Decimal(this).shallowBeautify(context, angleUnit);
+Expression DecimalNode::shallowBeautify(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Decimal(this).shallowBeautify();
 }
 
 Layout DecimalNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -336,14 +339,14 @@ Decimal::Decimal(size_t size, const Integer & m, int e) : Number(TreePool::share
   node()->setValue(m.digits(), m.numberOfDigits(), e, m.isNegative());
 }
 
-Expression Decimal::setSign(ExpressionNode::Sign s, Context & context, Preferences::AngleUnit angleUnit) {
+Expression Decimal::setSign(ExpressionNode::Sign s) {
   Decimal result = *this;
   result.node()->setNegative(s == ExpressionNode::Sign::Negative);
   return result;
 }
 
-Expression Decimal::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
-  Expression e = Expression::defaultShallowReduce(context, angleUnit);
+Expression Decimal::shallowReduce() {
+  Expression e = Expression::defaultShallowReduce();
   if (e.isUndefined()) {
     return e;
   }
@@ -370,9 +373,9 @@ Expression Decimal::shallowReduce(Context & context, Preferences::AngleUnit angl
   return result;
 }
 
-Expression Decimal::shallowBeautify(Context & context, Preferences::AngleUnit angleUnit) {
+Expression Decimal::shallowBeautify() {
   if (sign() == ExpressionNode::Sign::Negative) {
-    Expression abs = setSign(ExpressionNode::Sign::Positive, context, angleUnit);
+    Expression abs = setSign(ExpressionNode::Sign::Positive);
     Opposite o;
     replaceWithInPlace(o);
     o.replaceChildAtIndexInPlace(0, abs);

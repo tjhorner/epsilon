@@ -26,14 +26,13 @@ public:
 
   bool loadPythonEnvironment();
   void unloadPythonEnvironment();
-  bool pythonEnvironmentIsLoaded();
 
   void setAutoImport(bool autoImport) { m_autoImportScripts = autoImport; }
   void autoImport();
   void autoImportScript(Script script, bool force = false);
   void runAndPrintForCommand(const char * command);
-  bool inputRunLoopActive() { return m_inputRunLoopActive; }
-  void askInputRunLoopTermination() { m_inputRunLoopActive = false; }
+  bool inputRunLoopActive() const { return m_inputRunLoopActive; }
+  void terminateInputLoop();
 
   // ViewController
   View * view() override { return &m_selectableTableView; }
@@ -63,6 +62,7 @@ public:
 
   // MicroPython::ExecutionEnvironment
   void displaySandbox() override;
+  void resetSandbox() override;
   void printText(const char * text, size_t length) override;
   const char * inputText(const char * prompt) override;
 

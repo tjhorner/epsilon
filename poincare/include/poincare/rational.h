@@ -36,14 +36,14 @@ public:
 
   // Expression subclassing
   Type type() const override { return Type::Rational; }
-  Sign sign() const override { return m_negative ? Sign::Negative : Sign::Positive; }
+  Sign sign(Context * context) const override { return m_negative ? Sign::Negative : Sign::Positive; }
 
   // Layout
   Layout createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const override;
 
   // Approximation
-  Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override { return Complex<float>(templatedApproximate<float>()); }
-  Evaluation<double> approximate(DoublePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override { return Complex<double>(templatedApproximate<double>()); }
+  Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override { return Complex<float>(templatedApproximate<float>()); }
+  Evaluation<double> approximate(DoublePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override { return Complex<double>(templatedApproximate<double>()); }
   template<typename T> T templatedApproximate() const;
 
   // Basic test
@@ -56,11 +56,11 @@ public:
 
   static int NaturalOrder(const RationalNode * i, const RationalNode * j);
 private:
-  int simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const override;
-  Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
-  Expression shallowBeautify(Context & context, Preferences::AngleUnit angleUnit) override;
-  Expression setSign(Sign s, Context & context, Preferences::AngleUnit angleUnit) override;
-  Expression denominator(Context & context, Preferences::AngleUnit angleUnit) const override;
+  int simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const override;
+  Expression shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
+  Expression shallowBeautify(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
+  Expression setSign(Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
+  Expression denominator(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override;
   bool m_negative;
   uint8_t m_numberOfDigitsNumerator;
   uint8_t m_numberOfDigitsDenominator;
@@ -108,15 +108,15 @@ public:
   static int NaturalOrder(const Rational & i, const Rational & j) { return RationalNode::NaturalOrder(i.node(), j.node()); }
 
   // Simplification
-  Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit);
+  Expression shallowReduce();
 
 private:
   Rational(const native_uint_t * i, uint8_t numeratorSize, const native_uint_t * j, uint8_t denominatorSize, bool negative);
   RationalNode * node() { return static_cast<RationalNode *>(Number::node()); }
 
   /* Simplification */
-  Expression shallowBeautify(Context & context, Preferences::AngleUnit angleUnit);
-  Expression denominator(Context & context, Preferences::AngleUnit angleUnit) const;
+  Expression shallowBeautify();
+  Expression denominator(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const;
   Expression setSign(ExpressionNode::Sign s);
 };
 

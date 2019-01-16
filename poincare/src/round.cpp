@@ -21,14 +21,14 @@ int RoundNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloatM
   return SerializationHelper::Prefix(this, buffer, bufferSize, floatDisplayMode, numberOfSignificantDigits, Round::s_functionHelper.name());
 }
 
-Expression RoundNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Round(this).shallowReduce(context, angleUnit);
+Expression RoundNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Round(this).shallowReduce();
 }
 
 template<typename T>
-Evaluation<T> RoundNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
-  Evaluation<T> f1Input = childAtIndex(0)->approximate(T(), context, angleUnit);
-  Evaluation<T> f2Input = childAtIndex(1)->approximate(T(), context, angleUnit);
+Evaluation<T> RoundNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  Evaluation<T> f1Input = childAtIndex(0)->approximate(T(), context, complexFormat, angleUnit);
+  Evaluation<T> f2Input = childAtIndex(1)->approximate(T(), context, complexFormat, angleUnit);
   T f1 = f1Input.toScalar();
   T f2 = f2Input.toScalar();
   if (std::isnan(f2) || f2 != std::round(f2)) {
@@ -38,9 +38,9 @@ Evaluation<T> RoundNode::templatedApproximate(Context& context, Preferences::Ang
   return Complex<T>(std::round(f1*err)/err);
 }
 
-Expression Round::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression Round::shallowReduce() {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }

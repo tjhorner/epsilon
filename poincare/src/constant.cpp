@@ -2,17 +2,46 @@
 #include <poincare/char_layout.h>
 #include <poincare/horizontal_layout.h>
 #include <poincare/layout_helper.h>
+#include <poincare/complex_cartesian.h>
+#include <poincare/rational.h>
+#include <poincare/unreal.h>
 #include <ion.h>
 #include <cmath>
 #include <assert.h>
 
 namespace Poincare {
 
-ExpressionNode::Sign ConstantNode::sign() const {
+ExpressionNode::Sign ConstantNode::sign(Context * context) const {
   if (isPi() || isExponential()) {
     return Sign::Positive;
   }
   return Sign::Unknown;
+}
+
+bool ConstantNode::isReal(Context & context) const {
+  return !isIComplex();
+}
+
+int rankOfConstant(char c) {
+  switch (c) {
+    case Ion::Charset::IComplex:
+      return 0;
+    case Ion::Charset::SmallPi:
+      return 1;
+    case Ion::Charset::Exponential:
+      return 2;
+    default:
+      assert(false);
+      return -1;
+  }
+}
+
+int ConstantNode::simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const {
+  if (!ascending) {
+    return e->simplificationOrderSameType(this, true, canBeInterrupted);
+  }
+  assert(type() == e->type());
+  return (rankOfConstant(name()[0]) - rankOfConstant(static_cast<const ConstantNode *>(e)->name()[0]));
 }
 
 Layout ConstantNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -27,7 +56,7 @@ int ConstantNode::serialize(char * buffer, int bufferSize, Preferences::PrintFlo
 }
 
 template<typename T>
-Evaluation<T> ConstantNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
+Evaluation<T> ConstantNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   if (isIComplex()) {
     assert(m_name[1] == 0);
     return Complex<T>(0.0, 1.0);
@@ -39,8 +68,28 @@ Evaluation<T> ConstantNode::templatedApproximate(Context& context, Preferences::
   return Complex<T>(M_E);
 }
 
+Expression ConstantNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Constant(this).shallowReduce(context, complexFormat, angleUnit, target);
+}
+
 Constant::Constant(char name) : SymbolAbstract(TreePool::sharedPool()->createTreeNode<ConstantNode>(SymbolAbstract::AlignedNodeSize(1, sizeof(ConstantNode)))) {
   node()->setName(&name, 1);
 }
 
+Expression Constant::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+  Expression result;
+  if (complexFormat == Preferences::ComplexFormat::Real && isIComplex()) {
+    result = Unreal();
+  } else if (target == ExpressionNode::ReductionTarget::User && isIComplex()) {
+    result = ComplexCartesian::Builder(Rational(0), Rational(1));
+  }
+  if (!result.isUninitialized()) {
+    replaceWithInPlace(result);
+    return result;
+  }
+  return *this;
+}
+
+template Evaluation<float> ConstantNode::templatedApproximate<float>(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const;
+template Evaluation<double> ConstantNode::templatedApproximate<double>(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const;
 }

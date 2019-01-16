@@ -19,18 +19,22 @@ public:
 
   // Properties
   Type type() const override { return Type::Randint; }
+
+  // Complex
+  bool isReal(Context & context) const override { return true; }
+
 private:
   // Layout
   Layout createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const override;
   int serialize(char * buffer, int bufferSize, Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const override;
   // Evaluation
-  Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
-    return templateApproximate<float>(context, angleUnit);
+  Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override {
+    return templateApproximate<float>(context, complexFormat, angleUnit);
   }
-  Evaluation<double> approximate(DoublePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
-    return templateApproximate<double>(context, angleUnit);
+  Evaluation<double> approximate(DoublePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override {
+    return templateApproximate<double>(context, complexFormat, angleUnit);
   }
-  template <typename T> Evaluation<T> templateApproximate(Context& context, Preferences::AngleUnit angleUnit) const;
+  template <typename T> Evaluation<T> templateApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const;
 };
 
 class Randint final : public Expression {

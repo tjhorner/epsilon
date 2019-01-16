@@ -13,8 +13,8 @@ constexpr Expression::FunctionHelper MatrixTrace::s_functionHelper;
 
 int MatrixTraceNode::numberOfChildren() const { return MatrixTrace::s_functionHelper.numberOfChildren(); }
 
-Expression MatrixTraceNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return MatrixTrace(this).shallowReduce(context, angleUnit);
+Expression MatrixTraceNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return MatrixTrace(this).shallowReduce();
 }
 
 Layout MatrixTraceNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -26,15 +26,15 @@ int MatrixTraceNode::serialize(char * buffer, int bufferSize, Preferences::Print
 }
 
 template<typename T>
-Evaluation<T> MatrixTraceNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
-  Evaluation<T> input = childAtIndex(0)->approximate(T(), context, angleUnit);
+Evaluation<T> MatrixTraceNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  Evaluation<T> input = childAtIndex(0)->approximate(T(), context, complexFormat, angleUnit);
   Complex<T> result = Complex<T>(input.trace());
   return result;
 }
 
-Expression MatrixTrace::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression MatrixTrace::shallowReduce() {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }
@@ -52,7 +52,7 @@ Expression MatrixTrace::shallowReduce(Context & context, Preferences::AngleUnit 
     for (int i = 0; i < n; i++) {
       a.addChildAtIndexInPlace(m.childAtIndex(i+n*i), i, a.numberOfChildren());
     }
-    return a.shallowReduce(context, angleUnit);
+    return a.shallowReduce(context, complexFormat, angleUnit);
   }
   if (!c.recursivelyMatches(Expression::IsMatrix)) {
     return c;

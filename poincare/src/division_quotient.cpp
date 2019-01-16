@@ -12,8 +12,8 @@ constexpr Expression::FunctionHelper DivisionQuotient::s_functionHelper;
 
 int DivisionQuotientNode::numberOfChildren() const { return DivisionQuotient::s_functionHelper.numberOfChildren(); }
 
-Expression DivisionQuotientNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return DivisionQuotient(this).shallowReduce(context, angleUnit);
+Expression DivisionQuotientNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return DivisionQuotient(this).shallowReduce();
 }
 
 Layout DivisionQuotientNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -24,9 +24,9 @@ int DivisionQuotientNode::serialize(char * buffer, int bufferSize, Preferences::
 }
 
 template<typename T>
-Evaluation<T> DivisionQuotientNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
-  Evaluation<T> f1Input = childAtIndex(0)->approximate(T(), context, angleUnit);
-  Evaluation<T> f2Input = childAtIndex(1)->approximate(T(), context, angleUnit);
+Evaluation<T> DivisionQuotientNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  Evaluation<T> f1Input = childAtIndex(0)->approximate(T(), context, complexFormat, angleUnit);
+  Evaluation<T> f2Input = childAtIndex(1)->approximate(T(), context, complexFormat, angleUnit);
   T f1 = f1Input.toScalar();
   T f2 = f2Input.toScalar();
   if (std::isnan(f1) || std::isnan(f2) || f1 != (int)f1 || f2 != (int)f2) {
@@ -35,9 +35,9 @@ Evaluation<T> DivisionQuotientNode::templatedApproximate(Context& context, Prefe
   return Complex<T>(std::floor(f1/f2));
 }
 
-Expression DivisionQuotient::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression DivisionQuotient::shallowReduce() {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }

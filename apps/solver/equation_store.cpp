@@ -2,6 +2,7 @@
 #include "../shared/poincare_helpers.h"
 #include <limits.h>
 
+#include <poincare/constant.h>
 #include <poincare/symbol.h>
 #include <poincare/matrix.h>
 #include <poincare/rational.h>
@@ -12,6 +13,7 @@
 #include <poincare/division.h>
 #include <poincare/square_root.h>
 #include <poincare/power.h>
+#include <poincare/undefined.h>
 
 using namespace Poincare;
 using namespace Shared;
@@ -41,7 +43,7 @@ void EquationStore::tidy() {
 }
 
 Poincare::Layout EquationStore::exactSolutionLayoutAtIndex(int i, bool exactLayout) {
-  assert(m_type != Type::Monovariable && i >= 0 && (i < m_numberOfSolutions || (i == m_numberOfSolutions && m_type == Type::PolynomialMonovariable)));
+  assert(m_type != Type::Monovariable && i >= 0 && (i < m_numberOfSolutions));
   if (exactLayout) {
     return m_exactSolutionExactLayouts[i];
   } else {
@@ -76,7 +78,7 @@ bool EquationStore::haveMoreApproximationSolutions(Context * context) {
     return false;
   }
   double step = (m_intervalApproximateSolutions[1]-m_intervalApproximateSolutions[0])*k_precision;
-  return !std::isnan(definedModelAtIndex(0)->standardForm(context).nextRoot(m_variables[0], m_approximateSolutions[m_numberOfSolutions-1], step, m_intervalApproximateSolutions[1], *context, Preferences::sharedPreferences()->angleUnit()));
+  return !std::isnan(PoincareHelpers::NextRoot(definedModelAtIndex(0)->standardForm(context), m_variables[0], m_approximateSolutions[m_numberOfSolutions-1], step, m_intervalApproximateSolutions[1], *context));
 }
 
 void EquationStore::approximateSolve(Poincare::Context * context) {
@@ -86,7 +88,7 @@ void EquationStore::approximateSolve(Poincare::Context * context) {
   double start = m_intervalApproximateSolutions[0];
   double step = (m_intervalApproximateSolutions[1]-m_intervalApproximateSolutions[0])*k_precision;
   for (int i = 0; i < k_maxNumberOfApproximateSolutions; i++) {
-    m_approximateSolutions[i] = definedModelAtIndex(0)->standardForm(context).nextRoot(m_variables[0], start, step, m_intervalApproximateSolutions[1], *context, Preferences::sharedPreferences()->angleUnit());
+    m_approximateSolutions[i] = PoincareHelpers::NextRoot(definedModelAtIndex(0)->standardForm(context), m_variables[0], start, step, m_intervalApproximateSolutions[1], *context);
     if (std::isnan(m_approximateSolutions[i])) {
       break;
     } else {
@@ -99,13 +101,16 @@ void EquationStore::approximateSolve(Poincare::Context * context) {
 EquationStore::Error EquationStore::exactSolve(Poincare::Context * context) {
   tidySolution();
 
-  /* 0- Get unknown variables */
+  // Step 0. Get unknown variables
   m_variables[0][0] = 0;
   int numberOfVariables = 0;
   for (int i = 0; i < numberOfDefinedModels(); i++) {
     const Expression e = definedModelAtIndex(i)->standardForm(context);
     if (e.isUninitialized() || e.type() == ExpressionNode::Type::Undefined) {
       return Error::EquationUndefined;
+    }
+    if (e.type() == ExpressionNode::Type::Unreal) {
+      return Error::EquationUnreal;
     }
     numberOfVariables = e.getVariables(*context, [](const char * symbol) { return true; }, (char *)m_variables, Poincare::SymbolAbstract::k_maxNameSize);
     if (numberOfVariables == -1) {
@@ -116,15 +121,16 @@ EquationStore::Error EquationStore::exactSolve(Poincare::Context * context) {
     assert(numberOfVariables >= 0);
   }
 
-  /* 1- Linear System? */
+  // Step 1. Linear System?
+
   /* Create matrix coefficients and vector constants as:
-   * coefficients*(x y z ...) = constants */
+   *   coefficients * (x y z ...) = constants */
   Expression coefficients[k_maxNumberOfEquations][Expression::k_maxNumberOfVariables];
   Expression constants[k_maxNumberOfEquations];
   bool isLinear = true; // Invalid the linear system if one equation is non-linear
   Preferences * preferences = Preferences::sharedPreferences();
   for (int i = 0; i < numberOfDefinedModels(); i++) {
-    isLinear = isLinear && definedModelAtIndex(i)->standardForm(context).getLinearCoefficients((char *)m_variables, Poincare::SymbolAbstract::k_maxNameSize, coefficients[i], &constants[i], *context, preferences->angleUnit());
+    isLinear = isLinear && definedModelAtIndex(i)->standardForm(context).getLinearCoefficients((char *)m_variables, Poincare::SymbolAbstract::k_maxNameSize, coefficients[i], &constants[i], *context,  updatedComplexFormat(), preferences->angleUnit());
     if (!isLinear) {
     // TODO: should we clean pool allocated memory if the system is not linear
 #if 0
@@ -143,53 +149,62 @@ EquationStore::Error EquationStore::exactSolve(Poincare::Context * context) {
     }
   }
 
-  /* Initialize result */
+  // Initialize result
   Expression exactSolutions[k_maxNumberOfExactSolutions];
+  Expression exactSolutionsApproximations[k_maxNumberOfExactSolutions];
   EquationStore::Error error;
 
   if (isLinear) {
     m_type = Type::LinearSystem;
-    error = resolveLinearSystem(exactSolutions, coefficients, constants, context);
+    error = resolveLinearSystem(exactSolutions, exactSolutionsApproximations, coefficients, constants, context);
   } else {
-    /* 2- Polynomial & Monovariable? */
+    // Step 2. Polynomial & Monovariable?
     assert(numberOfVariables == 1 && numberOfDefinedModels() == 1);
     Expression polynomialCoefficients[Expression::k_maxNumberOfPolynomialCoefficients];
-    int degree = definedModelAtIndex(0)->standardForm(context).getPolynomialReducedCoefficients(m_variables[0], polynomialCoefficients, *context, preferences->angleUnit());
+    int degree = definedModelAtIndex(0)->standardForm(context).getPolynomialReducedCoefficients(m_variables[0], polynomialCoefficients, *context, updatedComplexFormat(), preferences->angleUnit());
     if (degree == 2) {
-      /* Polynomial degree <= 2*/
+      // Polynomial degree <= 2
       m_type = Type::PolynomialMonovariable;
-      error = oneDimensialPolynomialSolve(exactSolutions, polynomialCoefficients, degree, context);
+      error = oneDimensialPolynomialSolve(exactSolutions, exactSolutionsApproximations, polynomialCoefficients, degree, context);
     } else {
-      /* 3- Monovariable non-polynomial or polynomial with degree > 2 */
+      // Step 3. Monovariable non-polynomial or polynomial with degree > 2
       m_type = Type::Monovariable;
       m_intervalApproximateSolutions[0] = -10;
       m_intervalApproximateSolutions[1] = 10;
       return Error::RequireApproximateSolution;
     }
   }
-  /* Turn the results in layouts */
-  for (int i = 0; i < k_maxNumberOfExactSolutions; i++) {
+  // Create the results' layouts
+  int solutionIndex = 0;
+  int initialNumberOfSolutions = m_numberOfSolutions <= k_maxNumberOfExactSolutions ? m_numberOfSolutions : -1;
+  // We iterate through the solutions and the potential delta
+  for (int i = 0; i < initialNumberOfSolutions; i++) {
     if (!exactSolutions[i].isUninitialized()) {
-      m_exactSolutionExactLayouts[i] = PoincareHelpers::CreateLayout(exactSolutions[i]);
-      Expression approximate = PoincareHelpers::Approximate<double>(exactSolutions[i], *context);
-      m_exactSolutionApproximateLayouts[i] = PoincareHelpers::CreateLayout(approximate);
-      /* Check for identity between exact and approximate layouts */
+      assert(!exactSolutionsApproximations[i].isUninitialized());
+      if (exactSolutionsApproximations[i].type() == ExpressionNode::Type::Unreal) {
+        // Discard unreal solutions.
+        m_numberOfSolutions--;
+        continue;
+      }
+      m_exactSolutionExactLayouts[solutionIndex] = PoincareHelpers::CreateLayout(exactSolutions[i]);
+      m_exactSolutionApproximateLayouts[solutionIndex] = PoincareHelpers::CreateLayout(exactSolutionsApproximations[i]);
+      // Check for identity between exact and approximate layouts
       char exactBuffer[Shared::ExpressionModel::k_expressionBufferSize];
       char approximateBuffer[Shared::ExpressionModel::k_expressionBufferSize];
-      m_exactSolutionExactLayouts[i].serializeForParsing(exactBuffer, Shared::ExpressionModel::k_expressionBufferSize);
-      m_exactSolutionApproximateLayouts[i].serializeForParsing(approximateBuffer, Shared::ExpressionModel::k_expressionBufferSize);
-      m_exactSolutionIdentity[i] = strcmp(exactBuffer, approximateBuffer) == 0;
-      /* Check for equality between exact and approximate layouts */
-      if (!m_exactSolutionIdentity[i]) {
+      m_exactSolutionExactLayouts[solutionIndex].serializeForParsing(exactBuffer, Shared::ExpressionModel::k_expressionBufferSize);
+      m_exactSolutionApproximateLayouts[solutionIndex].serializeForParsing(approximateBuffer, Shared::ExpressionModel::k_expressionBufferSize);
+      m_exactSolutionIdentity[solutionIndex] = strcmp(exactBuffer, approximateBuffer) == 0;
+      if (!m_exactSolutionIdentity[solutionIndex]) {
         char buffer[Shared::ExpressionModel::k_expressionBufferSize];
-        m_exactSolutionEquality[i] = exactSolutions[i].isEqualToItsApproximationLayout(approximate, buffer, Shared::ExpressionModel::k_expressionBufferSize, preferences->angleUnit(), preferences->displayMode(), preferences->numberOfSignificantDigits(), *context);
+        m_exactSolutionEquality[solutionIndex] = exactSolutions[i].isEqualToItsApproximationLayout(exactSolutionsApproximations[i], buffer, Shared::ExpressionModel::k_expressionBufferSize, preferences->complexFormat(), preferences->angleUnit(), preferences->displayMode(), preferences->numberOfSignificantDigits(), *context);
       }
+      solutionIndex++;
     }
   }
   return error;
 }
 
-EquationStore::Error EquationStore::resolveLinearSystem(Expression exactSolutions[k_maxNumberOfExactSolutions], Expression coefficients[k_maxNumberOfEquations][Expression::k_maxNumberOfVariables], Expression constants[k_maxNumberOfEquations], Context * context) {
+EquationStore::Error EquationStore::resolveLinearSystem(Expression exactSolutions[k_maxNumberOfExactSolutions], Expression exactSolutionsApproximations[k_maxNumberOfExactSolutions], Expression coefficients[k_maxNumberOfEquations][Expression::k_maxNumberOfVariables], Expression constants[k_maxNumberOfEquations], Context * context) {
   Preferences::AngleUnit angleUnit = Preferences::sharedPreferences()->angleUnit();
   // n unknown variables
   int n = 0;
@@ -206,7 +221,7 @@ EquationStore::Error EquationStore::resolveLinearSystem(Expression exactSolution
   Ab.setDimensions(m, n+1);
 
   // Compute the rank of (A | b)
-  int rankAb = Ab.rank(*context, angleUnit, true);
+  int rankAb = Ab.rank(*context, updatedComplexFormat(), angleUnit, true);
 
   // Initialize the number of solutions
   m_numberOfSolutions = INT_MAX;
@@ -231,33 +246,36 @@ EquationStore::Error EquationStore::resolveLinearSystem(Expression exactSolution
       m_numberOfSolutions = n;
       for (int i = 0; i < m_numberOfSolutions; i++) {
         exactSolutions[i] = Ab.matrixChild(i,n);
-        PoincareHelpers::Simplify(&exactSolutions[i], *context);
+        exactSolutions[i].simplifyAndApproximate(&exactSolutions[i], &exactSolutionsApproximations[i], *context, updatedComplexFormat(), Poincare::Preferences::sharedPreferences()->angleUnit());
       }
     }
   }
   return Error::NoError;
 }
 
-EquationStore::Error EquationStore::oneDimensialPolynomialSolve(Expression exactSolutions[k_maxNumberOfExactSolutions], Expression coefficients[Expression::k_maxNumberOfPolynomialCoefficients], int degree, Context * context) {
+EquationStore::Error EquationStore::oneDimensialPolynomialSolve(Expression exactSolutions[k_maxNumberOfExactSolutions], Expression exactSolutionsApproximations[k_maxNumberOfExactSolutions], Expression coefficients[Expression::k_maxNumberOfPolynomialCoefficients], int degree, Context * context) {
   /* Equation ax^2+bx+c = 0 */
   assert(degree == 2);
   // Compute delta = b*b-4ac
   Expression delta = Subtraction(Power(coefficients[1].clone(), Rational(2)), Multiplication(Rational(4), coefficients[0].clone(), coefficients[2].clone()));
-  PoincareHelpers::Simplify(&delta, *context);
+  delta = delta.simplify(*context, updatedComplexFormat(), Poincare::Preferences::sharedPreferences()->angleUnit());
+  if (delta.isUninitialized()) {
+    delta = Poincare::Undefined();
+  }
   if (delta.isRationalZero()) {
     // if delta = 0, x0=x1= -b/(2a)
     exactSolutions[0] = Division(Opposite(coefficients[1]), Multiplication(Rational(2), coefficients[2]));
-    m_numberOfSolutions = 1;
+    m_numberOfSolutions = 2;
   } else {
     // x0 = (-b-sqrt(delta))/(2a)
     exactSolutions[0] = Division(Subtraction(Opposite(coefficients[1].clone()), SquareRoot::Builder(delta.clone())), Multiplication(Rational(2), coefficients[2].clone()));
     // x1 = (-b+sqrt(delta))/(2a)
     exactSolutions[1] = Division(Addition(Opposite(coefficients[1]), SquareRoot::Builder(delta.clone())), Multiplication(Rational(2), coefficients[2]));
-    m_numberOfSolutions = 2;
+    m_numberOfSolutions = 3;
   }
-  exactSolutions[m_numberOfSolutions] = delta;
+  exactSolutions[m_numberOfSolutions-1] = delta;
   for (int i = 0; i < m_numberOfSolutions; i++) {
-    PoincareHelpers::Simplify(&exactSolutions[i], *context);
+    exactSolutions[i].simplifyAndApproximate(&exactSolutions[i], &exactSolutionsApproximations[i], *context, updatedComplexFormat(), Poincare::Preferences::sharedPreferences()->angleUnit());
   }
   return Error::NoError;
 #if 0
@@ -331,6 +349,23 @@ void EquationStore::tidySolution() {
     m_exactSolutionExactLayouts[i] = Layout();
     m_exactSolutionApproximateLayouts[i] = Layout();
   }
+}
+
+Preferences::ComplexFormat EquationStore::updatedComplexFormat() {
+  Preferences::ComplexFormat complexFormat = Preferences::sharedPreferences()->complexFormat();
+  if (complexFormat == Preferences::ComplexFormat::Real && isExplictlyComplex()) {
+    return Preferences::ComplexFormat::Cartesian;
+  }
+  return complexFormat;
+}
+
+bool EquationStore::isExplictlyComplex() {
+  for (int i = 0; i < numberOfDefinedModels(); i++) {
+    if (definedModelAtIndex(i)->containsIComplex()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }

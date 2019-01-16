@@ -11,7 +11,7 @@ using namespace Poincare;
 template<typename T>
 void assert_exp_is_bounded(Expression exp, T lowBound, T upBound, bool upBoundIncluded = false) {
   Shared::GlobalContext globalContext;
-  T result = exp.approximateToScalar<T>(globalContext, Radian);
+  T result = exp.approximateToScalar<T>(globalContext, Cartesian, Radian);
   quiz_assert(result >= lowBound);
   quiz_assert(result < upBound || (result == upBound && upBoundIncluded));
 }
@@ -54,6 +54,7 @@ QUIZ_CASE(poincare_parse_function) {
   assert_parsed_expression_type("root(2,3)", ExpressionNode::Type::NthRoot);
   assert_parsed_expression_type("R(2)", ExpressionNode::Type::SquareRoot);
   assert_parsed_expression_type("round(2,3)", ExpressionNode::Type::Round);
+  assert_parsed_expression_type("sign(3)", ExpressionNode::Type::SignFunction);
   assert_parsed_expression_type("sum(n,n, 4, 10)", ExpressionNode::Type::Sum);
 #if MATRICES_ARE_DEFINED
   assert_parsed_expression_type("trace([[1,2,3][4,5,6][7,8,9]])", ExpressionNode::Type::MatrixTrace);
@@ -191,6 +192,10 @@ QUIZ_CASE(poincare_function_evaluate) {
   assert_parsed_expression_evaluates_to<float>("R(3+I)", "1.755317+0.2848488*I");
   assert_parsed_expression_evaluates_to<double>("R(3+I)", "1.7553173018244+2.8484878459314E-1*I");
 
+  assert_parsed_expression_evaluates_to<float>("sign(-23+1)", "-1");
+  assert_parsed_expression_evaluates_to<float>("sign(x)", "undef");
+  assert_parsed_expression_evaluates_to<double>("sign(2+I)", "undef");
+
   assert_parsed_expression_evaluates_to<double>("sum(2+n*I,n,1,5)", "10+15*I");
   assert_parsed_expression_evaluates_to<double>("sum(2+n*I,n,1,5)", "10+15*I");
 
@@ -233,6 +238,8 @@ QUIZ_CASE(poincare_function_evaluate) {
 QUIZ_CASE(poincare_function_simplify) {
   assert_parsed_expression_simplify_to("abs(P)", "P");
   assert_parsed_expression_simplify_to("abs(-P)", "P");
+  assert_parsed_expression_simplify_to("abs(1+I)", "R(2)");
+  assert_parsed_expression_simplify_to("arg(1+I)", "P/4");
   assert_parsed_expression_simplify_to("binomial(20,3)", "1140");
   assert_parsed_expression_simplify_to("binomial(20,10)", "184756");
   assert_parsed_expression_simplify_to("ceil(-1.3)", "-1");
@@ -252,9 +259,11 @@ QUIZ_CASE(poincare_function_simplify) {
   assert_parsed_expression_simplify_to("frac(-1.3)", "7/10");
   assert_parsed_expression_simplify_to("gcd(123,278)", "1");
   assert_parsed_expression_simplify_to("gcd(11,121)", "11");
+  assert_parsed_expression_simplify_to("im(1+5*I)", "5");
   assert_parsed_expression_simplify_to("lcm(123,278)", "34194");
   assert_parsed_expression_simplify_to("lcm(11,121)", "121");
   assert_parsed_expression_simplify_to("R(4)", "2");
+  assert_parsed_expression_simplify_to("re(1+5*I)", "1");
   assert_parsed_expression_simplify_to("root(4,3)", "root(4,3)");
   assert_parsed_expression_simplify_to("root(4,P)", "4^(1/P)");
   assert_parsed_expression_simplify_to("root(27,3)", "3");
@@ -263,6 +272,13 @@ QUIZ_CASE(poincare_function_simplify) {
   assert_parsed_expression_simplify_to("round(4.9,0)", "5");
   assert_parsed_expression_simplify_to("round(12.9,-1)", "10");
   assert_parsed_expression_simplify_to("round(12.9,-2)", "0");
+  assert_parsed_expression_simplify_to("sign(-23)", "-1");
+  assert_parsed_expression_simplify_to("sign(-I)", "sign(-I)");
+  assert_parsed_expression_simplify_to("sign(23)", "1");
+  assert_parsed_expression_simplify_to("sign(log(18))", "1");
+  assert_parsed_expression_simplify_to("sign(-R(2))", "-1");
+  assert_parsed_expression_simplify_to("sign(x)", "sign(x)");
+  assert_parsed_expression_simplify_to("sign(2+I)", "sign(2+I)");
   assert_parsed_expression_simplify_to("permute(99,4)", "90345024");
   assert_parsed_expression_simplify_to("permute(20,-10)", Undefined::Name());
   assert_parsed_expression_simplify_to("re(1/2)", "1/2");

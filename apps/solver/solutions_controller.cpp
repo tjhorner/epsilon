@@ -16,8 +16,8 @@ using namespace Shared;
 namespace Solver {
 
 SolutionsController::ContentView::ContentView(SolutionsController * controller) :
-  m_warningMessageView0(KDFont::SmallFont, I18n::Message::OnlyFirstSolutionsDisplayed0, 0.5f, 0.5f, KDColorBlack, Palette::WallScreenDark),
-  m_warningMessageView1(KDFont::SmallFont, I18n::Message::OnlyFirstSolutionsDisplayed1, 0.5f, 0.5f, KDColorBlack, Palette::WallScreenDark),
+  m_warningMessageView0(KDFont::SmallFont, I18n::Message::Default, 0.5f, 0.5f, KDColorBlack, Palette::WallScreenDark),
+  m_warningMessageView1(KDFont::SmallFont, I18n::Message::Default, 0.5f, 0.5f, KDColorBlack, Palette::WallScreenDark),
   m_selectableTableView(controller),
   m_displayWarningMoreSolutions(false)
 {
@@ -31,11 +31,15 @@ void SolutionsController::ContentView::drawRect(KDContext * ctx, KDRect rect) co
   }
 }
 
-void SolutionsController::ContentView::setWarningMoreSolutions(bool warning) {
+void SolutionsController::ContentView::setWarning(bool warning) {
   m_displayWarningMoreSolutions = warning;
   m_selectableTableView.setTopMargin(m_displayWarningMoreSolutions ? 0 : Metric::CommonTopMargin);
   layoutSubviews();
-  markRectAsDirty(bounds());
+}
+
+void SolutionsController::ContentView::setWarningMessages(I18n::Message message0, I18n::Message message1) {
+  m_warningMessageView0.setMessage(message0);
+  m_warningMessageView1.setMessage(message1);
 }
 
 int SolutionsController::ContentView::numberOfSubviews() const {
@@ -100,7 +104,16 @@ View * SolutionsController::view() {
 void SolutionsController::viewWillAppear() {
   ViewController::viewWillAppear();
   App * solverApp = static_cast<App *>(app());
-  m_contentView.setWarningMoreSolutions(m_equationStore->haveMoreApproximationSolutions(solverApp->localContext()));
+  bool requireWarning = false;
+  if (m_equationStore->type() == EquationStore::Type::Monovariable) {
+    m_contentView.setWarningMessages(I18n::Message::OnlyFirstSolutionsDisplayed0, I18n::Message::OnlyFirstSolutionsDisplayed1);
+    requireWarning = m_equationStore->haveMoreApproximationSolutions(solverApp->localContext());
+  } else if (m_equationStore->type() == EquationStore::Type::PolynomialMonovariable && m_equationStore->numberOfSolutions() == 1) {
+    assert(Preferences::sharedPreferences()->complexFormat() == Preferences::ComplexFormat::Real);
+    m_contentView.setWarningMessages(I18n::Message::PolynomeHasNoRealSolution0, I18n::Message::PolynomeHasNoRealSolution1);
+    requireWarning = true;
+  }
+  m_contentView.setWarning(requireWarning);
   m_contentView.selectableTableView()->reloadData();
   if (selectedRow() < 0) {
     selectCellAtLocation(0, 0);
@@ -136,9 +149,6 @@ Responder * SolutionsController::defaultController() {
 /* TableViewDataSource */
 
 int SolutionsController::numberOfRows() {
-  if (m_equationStore->type() == EquationStore::Type::PolynomialMonovariable) {
-    return m_equationStore->numberOfSolutions() + 1; // add the delta row
-  }
   return m_equationStore->numberOfSolutions();
 }
 
@@ -149,7 +159,7 @@ int SolutionsController::numberOfColumns() {
 void SolutionsController::willDisplayCellAtLocation(HighlightCell * cell, int i, int j) {
   if (i == 0) {
     // Name of the variable or discriminant
-    if (m_equationStore->type() == EquationStore::Type::PolynomialMonovariable && j == m_equationStore->numberOfSolutions()) {
+    if (m_equationStore->type() == EquationStore::Type::PolynomialMonovariable && j == m_equationStore->numberOfSolutions()-1) {
       // Discriminant
       EvenOddExpressionCell * deltaCell = static_cast<EvenOddExpressionCell *>(cell);
       deltaCell->setLayout(m_delta2Layout);
@@ -165,9 +175,9 @@ void SolutionsController::willDisplayCellAtLocation(HighlightCell * cell, int i,
           break;
         default:
           /* The system has one variable but might have many solutions: the cell
-           * text is variableX, with X the row index. For instance, x0, x1,...*/
+           * text is variableX, with X the row index + 1 (e.g. x1, x2,...) */
           int length = strlcpy(bufferSymbol, m_equationStore->variableAtIndex(0), Poincare::SymbolAbstract::k_maxNameSize);
-          bufferSymbol[length++] = j+'0';
+          bufferSymbol[length++] = j+'1';
           bufferSymbol[length] = 0;
           break;
       }
@@ -265,7 +275,7 @@ int SolutionsController::reusableCellCount(int type) {
 
 int SolutionsController::typeAtLocation(int i, int j) {
   if (i == 0) {
-    if (m_equationStore->type() == EquationStore::Type::PolynomialMonovariable && j == m_equationStore->numberOfSolutions()) {
+    if (m_equationStore->type() == EquationStore::Type::PolynomialMonovariable && j == m_equationStore->numberOfSolutions()-1) {
       return 1;
     }
     return 0;

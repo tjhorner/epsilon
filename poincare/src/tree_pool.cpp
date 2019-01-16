@@ -216,11 +216,13 @@ template ArcCosineNode * Poincare::TreePool::createTreeNode<ArcCosineNode>(size_
 template ArcSineNode * Poincare::TreePool::createTreeNode<ArcSineNode>(size_t size);
 template ArcTangentNode * Poincare::TreePool::createTreeNode<ArcTangentNode>(size_t size);
 template UndefinedNode * Poincare::TreePool::createTreeNode<UndefinedNode>(size_t size);
+template UnrealNode * Poincare::TreePool::createTreeNode<UnrealNode>(size_t size);
 template BinomialCoefficientNode * Poincare::TreePool::createTreeNode<BinomialCoefficientNode>(size_t size);
 template CeilingNode * Poincare::TreePool::createTreeNode<CeilingNode>(size_t size);
 template OppositeNode * Poincare::TreePool::createTreeNode<OppositeNode>(size_t size);
 template PowerNode * Poincare::TreePool::createTreeNode<PowerNode>(size_t size);
 template ComplexArgumentNode * Poincare::TreePool::createTreeNode<ComplexArgumentNode>(size_t size);
+template ComplexCartesianNode * Poincare::TreePool::createTreeNode<ComplexCartesianNode>(size_t size);
 template ConfidenceIntervalNode * Poincare::TreePool::createTreeNode<ConfidenceIntervalNode>(size_t size);
 template ConjugateNode * Poincare::TreePool::createTreeNode<ConjugateNode>(size_t size);
 template ConstantNode * Poincare::TreePool::createTreeNode<ConstantNode>(size_t size);
@@ -272,6 +274,7 @@ template RandomNode * Poincare::TreePool::createTreeNode<RandomNode>(size_t size
 template RationalNode * Poincare::TreePool::createTreeNode<RationalNode>(size_t size);
 template RealPartNode * Poincare::TreePool::createTreeNode<RealPartNode>(size_t size);
 template RoundNode * Poincare::TreePool::createTreeNode<RoundNode>(size_t size);
+template SignFunctionNode * Poincare::TreePool::createTreeNode<SignFunctionNode>(size_t size);
 template SineNode * Poincare::TreePool::createTreeNode<SineNode>(size_t size);
 template SquareRootNode * Poincare::TreePool::createTreeNode<SquareRootNode>(size_t size);
 template SubtractionNode * Poincare::TreePool::createTreeNode<SubtractionNode>(size_t size);

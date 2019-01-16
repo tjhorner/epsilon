@@ -17,9 +17,10 @@ namespace Poincare {
 double NumberNode::doubleApproximation() const {
   switch (type()) {
     case Type::Undefined:
+    case Type::Unreal:
       return NAN;
     case Type::Infinity:
-      return sign() == Sign::Negative ? -INFINITY : INFINITY;
+      return Number(this).sign() == Sign::Negative ? -INFINITY : INFINITY;
     case Type::Float:
       if (size() == sizeof(FloatNode<float>)) {
         return static_cast<const FloatNode<float> *>(this)->value();
@@ -90,7 +91,8 @@ Number Number::BinaryOperation(const Number & i, const Number & j, RationalBinar
       return a;
     }
   }
-  // one of the operand is Undefined/Infinity/Float or the Rational addition overflowed
+  /* At least one of the operands is Undefined/Infinity/Float, or the Rational
+   * addition overflowed */
   double a = doubleOp(i.node()->doubleApproximation(), j.node()->doubleApproximation());
   return FloatNumber(a);
 }

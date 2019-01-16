@@ -14,8 +14,8 @@ constexpr Expression::FunctionHelper MatrixInverse::s_functionHelper;
 
 int MatrixInverseNode::numberOfChildren() const { return MatrixInverse::s_functionHelper.numberOfChildren(); }
 
-Expression MatrixInverseNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return MatrixInverse(this).shallowReduce(context, angleUnit, target);
+Expression MatrixInverseNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return MatrixInverse(this).shallowReduce(context, complexFormat, angleUnit, target);
 }
 
 Layout MatrixInverseNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -28,8 +28,8 @@ int MatrixInverseNode::serialize(char * buffer, int bufferSize, Preferences::Pri
 
 // TODO: handle this exactly in shallowReduce for small dimensions.
 template<typename T>
-Evaluation<T> MatrixInverseNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
-  Evaluation<T> input = childAtIndex(0)->approximate(T(), context, angleUnit);
+Evaluation<T> MatrixInverseNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  Evaluation<T> input = childAtIndex(0)->approximate(T(), context, complexFormat, angleUnit);
   Evaluation<T> inverse;
   if (input.type() == EvaluationNode<T>::Type::MatrixComplex) {
     inverse = static_cast<MatrixComplex<T>&>(input).inverse();
@@ -42,9 +42,9 @@ Evaluation<T> MatrixInverseNode::templatedApproximate(Context& context, Preferen
   return inverse;
 }
 
-Expression MatrixInverse::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+Expression MatrixInverse::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }
@@ -53,7 +53,7 @@ Expression MatrixInverse::shallowReduce(Context & context, Preferences::AngleUni
 #if MATRIX_EXACT_REDUCING
 #if 0
   if (!c.recursivelyMatches(Expression::IsMatrix)) {
-    return Power(c, Rational(-1).shallowReduce(context, angleUnit, target);
+    return Power(c, Rational(-1).shallowReduce(context, complexFormat, angleUnit, target);
   }
   if (c.type() == ExpressionNode::Type::Matrix) {
     Matrix mat = static_cast<Matrix&>(c);
@@ -67,7 +67,7 @@ Expression MatrixInverse::shallowReduce(Context & context, Preferences::AngleUni
   if (c.type() != ExpressionNode::Type::Matrix) {
     Expression result = Power(c, Rational(-1));
     replaceWithInPlace(result);
-    result = result.shallowReduce(context, angleUnit, target);
+    result = result.shallowReduce(context, complexFormat, angleUnit, target);
     return result;
   }
   return *this;

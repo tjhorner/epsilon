@@ -49,6 +49,7 @@ objs += $(addprefix poincare/src/,\
   ceiling.o\
   complex.o\
   complex_argument.o\
+  complex_cartesian.o\
   confidence_interval.o\
   conjugate.o\
   constant.o\
@@ -97,6 +98,7 @@ objs += $(addprefix poincare/src/,\
   nth_root.o\
   number.o\
   opposite.o\
+  parametered_expression_helper.o\
   parenthesis.o\
   permute_coefficient.o\
   power.o\
@@ -111,6 +113,7 @@ objs += $(addprefix poincare/src/,\
   round.o\
   sequence.o\
   serialization_helper.o\
+  sign_function.o\
   simplification_helper.o\
   sine.o\
   square_root.o\
@@ -125,6 +128,7 @@ objs += $(addprefix poincare/src/,\
   tree_pool.o\
   trigonometry.o\
   undefined.o\
+  unreal.o\
   variable_context.o\
 )
 
@@ -139,11 +143,13 @@ tests += $(addprefix poincare/test/,\
   addition.cpp\
   arithmetic.cpp\
   binomial_coefficient_layout.cpp\
+  complex.cpp\
   complex_to_expression.cpp\
   convert_expression_to_text.cpp\
   decimal.cpp\
   division.cpp\
   expression.cpp\
+  expression_order.cpp\
   factorial.cpp\
   float.cpp\
   fraction_layout.cpp\

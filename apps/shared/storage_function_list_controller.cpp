@@ -4,6 +4,7 @@
 namespace Shared {
 
 static inline int max(int x, int y) { return x > y ? x : y; }
+static inline int min(int x, int y) { return x < y ? x : y; }
 
 StorageFunctionListController::StorageFunctionListController(Responder * parentResponder, ButtonRowController * header, ButtonRowController * footer, I18n::Message text) :
   StorageExpressionModelListController(parentResponder, text),
@@ -24,9 +25,14 @@ StorageFunctionListController::StorageFunctionListController(Responder * parentR
     }, this), KDFont::SmallFont, Palette::PurpleBright),
   m_titlesColumnWidth(k_minTitleColumnWidth)
 {
+  /* m_memoizedCellBaseline is not initialized by the call to
+   * resetMemoizationForIndex in StorageExpressionModelListController's
+   * constructor, because it is a virtual method in a constructor. */
+  for (int i = 0; i < k_memoizedCellsCount; i++) {
+    m_memoizedCellBaseline[i] = -1;
+  }
   m_selectableTableView.setMargins(0);
   m_selectableTableView.setVerticalCellOverlap(0);
-  m_selectableTableView.setShowsIndicators(false);
 }
 
 /* TableViewDataSource */
@@ -79,6 +85,42 @@ int StorageFunctionListController::indexFromCumulatedWidth(KDCoordinate offsetX)
       return 2;
     }
   }
+}
+
+int StorageFunctionListController::indexFromCumulatedHeight(KDCoordinate offsetY) {
+  if (offsetY == 0) {
+    return 0;
+  }
+
+  /* We use memoization to speed up this method: if offsetY is "around" the
+   * memoized cumulatedHeightForIndex, we can compute its value easily by
+   * adding/substracting memoized row heights. */
+
+  int currentSelectedRow = selectedRow();
+  int rowsCount = numberOfRows();
+  if (rowsCount <= 1 || currentSelectedRow < 1) {
+    return TableViewDataSource::indexFromCumulatedHeight(offsetY);
+  }
+
+  KDCoordinate currentCumulatedHeight = cumulatedHeightFromIndex(currentSelectedRow);
+  if (offsetY > currentCumulatedHeight) {
+    int iMax = min(k_memoizedCellsCount/2 + 1, rowsCount - currentSelectedRow);
+    for (int i = 0; i < iMax; i++) {
+      currentCumulatedHeight+= rowHeight(currentSelectedRow + i);
+      if (offsetY <= currentCumulatedHeight) {
+        return currentSelectedRow + i;
+      }
+    }
+  } else {
+    int iMax = min(k_memoizedCellsCount/2, currentSelectedRow);
+    for (int i = 1; i <= iMax; i++) {
+      currentCumulatedHeight-= rowHeight(currentSelectedRow-i);
+      if (offsetY > currentCumulatedHeight) {
+        return currentSelectedRow - i;
+      }
+    }
+  }
+  return TableViewDataSource::indexFromCumulatedHeight(offsetY);
 }
 
 int StorageFunctionListController::typeAtLocation(int i, int j) {
@@ -237,9 +279,13 @@ void StorageFunctionListController::configureFunction(Ion::Storage::Record recor
   stack->push(parameterController());
 }
 
-void StorageFunctionListController::computeTitlesColumnWidth() {
+void StorageFunctionListController::computeTitlesColumnWidth(bool forceMax) {
+  if (forceMax) {
+    m_titlesColumnWidth = nameWidth(StorageFunction::k_maxNameWithArgumentSize - 1)+k_functionTitleSumOfMargins;
+    return;
+  }
   KDCoordinate maxTitleWidth = maxFunctionNameWidth()+k_functionTitleSumOfMargins;
-  m_titlesColumnWidth = maxTitleWidth < k_minTitleColumnWidth ? k_minTitleColumnWidth : maxTitleWidth;
+  m_titlesColumnWidth = max(maxTitleWidth, k_minTitleColumnWidth);
 }
 
 TabViewController * StorageFunctionListController::tabController() const {
@@ -266,15 +312,56 @@ KDCoordinate StorageFunctionListController::maxFunctionNameWidth() {
     assert(dotPosition != nullptr);
     maxNameLength = max(maxNameLength, dotPosition-functionName);
   }
-  return (maxNameLength + StorageFunction::k_parenthesedArgumentLength) * titleCells(0)->font()->glyphSize().width();
+  return nameWidth(maxNameLength + StorageFunction::k_parenthesedArgumentLength);
 }
 
 void StorageFunctionListController::didChangeModelsList() {
+  StorageExpressionModelListController::didChangeModelsList();
   computeTitlesColumnWidth();
 }
 
 KDCoordinate StorageFunctionListController::notMemoizedCumulatedHeightFromIndex(int j) {
   return TableViewDataSource::cumulatedHeightFromIndex(j);
+}
+
+KDCoordinate StorageFunctionListController::baseline(int j) {
+  if (j < 0) {
+    return -1;
+  }
+  int currentSelectedRow = selectedRow();
+  constexpr int halfMemoizationCount = k_memoizedCellsCount/2;
+  if (j >= currentSelectedRow - halfMemoizationCount && j <= currentSelectedRow + halfMemoizationCount) {
+    int memoizedIndex = j - (currentSelectedRow - halfMemoizationCount);
+    if (m_memoizedCellBaseline[memoizedIndex] < 0) {
+      m_memoizedCellBaseline[memoizedIndex] = privateBaseline(j);
+    }
+    return m_memoizedCellBaseline[memoizedIndex];
+  }
+  return privateBaseline(j);
+}
+
+void StorageFunctionListController::resetMemoizationForIndex(int index) {
+  assert(index >= 0 && index < k_memoizedCellsCount);
+  m_memoizedCellBaseline[index] = -1;
+  StorageExpressionModelListController::resetMemoizationForIndex(index);
+}
+
+void StorageFunctionListController::shiftMemoization(bool newCellIsUnder) {
+  if (newCellIsUnder) {
+    for (int i = 0; i < k_memoizedCellsCount - 1; i++) {
+      m_memoizedCellBaseline[i] = m_memoizedCellBaseline[i+1];
+    }
+  } else {
+    for (int i = k_memoizedCellsCount - 1; i > 0; i--) {
+      m_memoizedCellBaseline[i] = m_memoizedCellBaseline[i-1];
+    }
+  }
+  StorageExpressionModelListController::shiftMemoization(newCellIsUnder);
+}
+
+KDCoordinate StorageFunctionListController::nameWidth(int nameLength) const {
+  assert(nameLength >= 0);
+  return nameLength * const_cast<StorageFunctionListController *>(this)->titleCells(0)->font()->glyphSize().width();
 }
 
 }

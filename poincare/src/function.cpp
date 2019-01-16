@@ -9,6 +9,11 @@
 
 namespace Poincare {
 
+bool FunctionNode::isReal(Context & context) const {
+  Function f(this);
+  return SymbolAbstract::isReal(f, context);
+}
+
 Expression FunctionNode::replaceSymbolWithExpression(const SymbolAbstract & symbol, const Expression & expression) {
   return Function(this).replaceSymbolWithExpression(symbol, expression);
 }
@@ -57,30 +62,30 @@ int FunctionNode::serialize(char * buffer, int bufferSize, Preferences::PrintFlo
   return SerializationHelper::Prefix(this, buffer, bufferSize, floatDisplayMode, numberOfSignificantDigits, name());
 }
 
-Expression FunctionNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Function(this).shallowReduce(context, angleUnit, target); // This uses Symbol::shallowReduce
+Expression FunctionNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Function(this).shallowReduce(context, complexFormat, angleUnit, target); // This uses Symbol::shallowReduce
 }
 
 Expression FunctionNode::shallowReplaceReplaceableSymbols(Context & context) {
   return Function(this).shallowReplaceReplaceableSymbols(context);
 }
 
-Evaluation<float> FunctionNode::approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const {
-  return templatedApproximate<float>(context, angleUnit);
+Evaluation<float> FunctionNode::approximate(SinglePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  return templatedApproximate<float>(context, complexFormat, angleUnit);
 }
 
-Evaluation<double> FunctionNode::approximate(DoublePrecision p, Context& context, Preferences::AngleUnit angleUnit) const {
-  return templatedApproximate<double>(context, angleUnit);
+Evaluation<double> FunctionNode::approximate(DoublePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
+  return templatedApproximate<double>(context, complexFormat, angleUnit);
 }
 
 template<typename T>
-Evaluation<T> FunctionNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
+Evaluation<T> FunctionNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   Function f(this);
   Expression e = SymbolAbstract::Expand(f, context, true);
   if (e.isUninitialized()) {
     return Complex<T>::Undefined();
   }
-  return e.approximateToEvaluation<T>(context, angleUnit);
+  return e.node()->approximate(T(), context, complexFormat, angleUnit);
 }
 
 Function::Function(const char * name, size_t length) :
@@ -108,12 +113,12 @@ Expression Function::replaceSymbolWithExpression(const SymbolAbstract & symbol, 
   return *this;
 }
 
-Expression Function::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+Expression Function::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   Function f(*this);
   Expression e = SymbolAbstract::Expand(f, context, true);
   if (!e.isUninitialized()) {
     replaceWithInPlace(e);
-    return e.deepReduce(context, angleUnit, target);
+    return e.deepReduce(context, complexFormat, angleUnit, target);
   }
   return *this;
 }

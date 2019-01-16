@@ -30,10 +30,10 @@ ConsoleController::ConsoleController(Responder * parentResponder, App * pythonDe
   m_selectableTableView(this, this, this, this),
   m_editCell(this, pythonDelegate, this),
   m_scriptStore(scriptStore),
-  m_sandboxController(this),
+  m_sandboxController(this, this),
   m_inputRunLoopActive(false)
 #if EPSILON_GETOPT
-      , m_locked(lockOnConsole)
+  , m_locked(lockOnConsole)
 #endif
 {
   m_selectableTableView.setMargins(0, Metric::CommonRightMargin, 0, Metric::TitleBarExternHorizontalMargin);
@@ -45,7 +45,7 @@ ConsoleController::ConsoleController(Responder * parentResponder, App * pythonDe
 }
 
 bool ConsoleController::loadPythonEnvironment() {
-  if(pythonEnvironmentIsLoaded()) {
+  if (m_pythonDelegate->isPythonUser(this)) {
     return true;
   }
   emptyOutputAccumulationBuffer();
@@ -60,14 +60,10 @@ bool ConsoleController::loadPythonEnvironment() {
 }
 
 void ConsoleController::unloadPythonEnvironment() {
-  if (pythonEnvironmentIsLoaded()) {
+  if (!m_pythonDelegate->isPythonUser(nullptr)) {
     m_consoleStore.startNewSession();
     m_pythonDelegate->deinitPython();
   }
-}
-
-bool ConsoleController::pythonEnvironmentIsLoaded() {
-  return m_pythonDelegate->isPythonUser(this);
 }
 
 void ConsoleController::autoImport() {
@@ -85,31 +81,65 @@ void ConsoleController::runAndPrintForCommand(const char * command) {
   m_consoleStore.deleteLastLineIfEmpty();
 }
 
+void ConsoleController::terminateInputLoop() {
+  assert(m_inputRunLoopActive);
+  m_inputRunLoopActive = false;
+  interrupt();
+}
+
 const char * ConsoleController::inputText(const char * prompt) {
   AppsContainer * a = (AppsContainer *)(app()->container());
   m_inputRunLoopActive = true;
 
-  m_selectableTableView.reloadData();
-  m_selectableTableView.selectCellAtLocation(0, m_consoleStore.numberOfLines());
-  m_editCell.setPrompt(prompt);
+  const char * promptText = prompt;
+  char * s = const_cast<char *>(prompt);
+
+  if (promptText != nullptr) {
+    /* Set the prompt text. If the prompt text has a '\n', put the prompt text in
+     * the history until the last '\n', and put the remaining prompt text in the
+     * edit cell's prompt. */
+    char * lastCarriageReturn = nullptr;
+    while (*s != 0) {
+      if (*s == '\n') {
+        lastCarriageReturn = s;
+      }
+      s++;
+    }
+    if (lastCarriageReturn != nullptr) {
+      printText(prompt, lastCarriageReturn-prompt+1);
+      promptText = lastCarriageReturn+1;
+    }
+  }
+
+  m_editCell.setPrompt(promptText);
   m_editCell.setText("");
 
+  // Reload the history
+  m_selectableTableView.reloadData();
+  m_selectableTableView.selectCellAtLocation(0, m_consoleStore.numberOfLines());
   a->redrawWindow();
+
+  // Launch a new input loop
   a->runWhile([](void * a){
       ConsoleController * c = static_cast<ConsoleController *>(a);
       return c->inputRunLoopActive();
   }, this);
 
+  // Handle the input text
+  if (promptText != nullptr) {
+    printText(promptText, s - promptText);
+  }
+  const char * text = m_editCell.text();
+  printText(text, strlen(text));
   flushOutputAccumulationBufferToStore();
-  m_consoleStore.deleteLastLineIfEmpty();
+
   m_editCell.setPrompt(sStandardPromptText);
 
-  return m_editCell.text();
+  return text;
 }
 
 void ConsoleController::viewWillAppear() {
   loadPythonEnvironment();
-  m_sandboxIsDisplayed = false;
   if (m_importScriptsWhenViewAppears) {
     m_importScriptsWhenViewAppears = false;
     autoImport();
@@ -150,9 +180,8 @@ bool ConsoleController::handleEvent(Ion::Events::Event event) {
   }
 #if EPSILON_GETOPT
   if (m_locked && (event == Ion::Events::Home || event == Ion::Events::Back)) {
-    if (inputRunLoopActive()) {
-      askInputRunLoopTermination();
-      interrupt();
+    if (m_inputRunLoopActive) {
+      terminateInputLoop();
     }
     return true;
   }
@@ -239,10 +268,14 @@ bool ConsoleController::textFieldShouldFinishEditing(TextField * textField, Ion:
 }
 
 bool ConsoleController::textFieldDidReceiveEvent(TextField * textField, Ion::Events::Event event) {
-  if (event == Ion::Events::Up && inputRunLoopActive()) {
-    askInputRunLoopTermination();
-    // We need to return true here because we want to actually exit from the
-    // input run loop, which requires ending a dispatchEvent cycle.
+  if (m_inputRunLoopActive
+      && (event == Ion::Events::Up
+        || event == Ion::Events::OK
+        || event == Ion::Events::EXE))
+  {
+    m_inputRunLoopActive = false;
+    /* We need to return true here because we want to actually exit from the
+     * input run loop, which requires ending a dispatchEvent cycle. */
     return true;
   }
   if (event == Ion::Events::Up) {
@@ -256,24 +289,23 @@ bool ConsoleController::textFieldDidReceiveEvent(TextField * textField, Ion::Eve
 }
 
 bool ConsoleController::textFieldDidFinishEditing(TextField * textField, const char * text, Ion::Events::Event event) {
-  if (inputRunLoopActive()) {
-    askInputRunLoopTermination();
+  if (m_inputRunLoopActive) {
+    m_inputRunLoopActive = false;
     return false;
   }
   runAndPrintForCommand(text);
-  if (m_sandboxIsDisplayed) {
-    return true;
+  if (!sandboxIsDisplayed()) {
+    m_selectableTableView.reloadData();
+    m_editCell.setEditing(true);
+    textField->setText("");
+    m_selectableTableView.selectCellAtLocation(0, m_consoleStore.numberOfLines());
   }
-  m_selectableTableView.reloadData();
-  m_editCell.setEditing(true);
-  textField->setText("");
-  m_selectableTableView.selectCellAtLocation(0, m_consoleStore.numberOfLines());
   return true;
 }
 
 bool ConsoleController::textFieldDidAbortEditing(TextField * textField) {
-  if (inputRunLoopActive()) {
-    askInputRunLoopTermination();
+  if (m_inputRunLoopActive) {
+    m_inputRunLoopActive = false;
   } else {
 #if EPSILON_GETOPT
     /* In order to lock the console controller, we disable poping controllers
@@ -294,36 +326,41 @@ bool ConsoleController::textFieldDidAbortEditing(TextField * textField) {
 }
 
 void ConsoleController::displaySandbox() {
-  if (m_sandboxIsDisplayed) {
+  if (sandboxIsDisplayed()) {
     return;
   }
-  m_sandboxIsDisplayed = true;
   stackViewController()->push(&m_sandboxController);
+}
+
+void ConsoleController::resetSandbox() {
+  if (!sandboxIsDisplayed()) {
+    return;
+  }
+  m_sandboxController.reset();
 }
 
 /* printText is called by the Python machine.
  * The text argument is not always null-terminated. */
 void ConsoleController::printText(const char * text, size_t length) {
   size_t textCutIndex = firstNewLineCharIndex(text, length);
-  // If there is no new line in text, just append it to the output accumulation
-  // buffer.
   if (textCutIndex >= length) {
+    /* If there is no new line in text, just append it to the output
+     * accumulation buffer. */
     appendTextToOutputAccumulationBuffer(text, length);
     return;
   }
-  // If there is a new line in the middle of the text, we have to store at least
-  // two new console lines in the console store.
   if (textCutIndex < length - 1) {
+    /* If there is a new line in the middle of the text, we have to store at
+     * least two new console lines in the console store. */
     printText(text, textCutIndex + 1);
     printText(&text[textCutIndex+1], length - (textCutIndex + 1));
     return;
   }
-  // If there is a new line at the end of the text, we have to store the line in
-  // the console store.
-  if (textCutIndex == length - 1) {
-    appendTextToOutputAccumulationBuffer(text, length-1);
-    flushOutputAccumulationBufferToStore();
-  }
+  /* There is a new line at the end of the text, we have to store the line in
+   * the console store. */
+  assert(textCutIndex == length - 1);
+  appendTextToOutputAccumulationBuffer(text, length-1);
+  flushOutputAccumulationBufferToStore();
 }
 
 void ConsoleController::autoImportScript(Script script, bool force) {

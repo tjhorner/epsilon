@@ -15,6 +15,7 @@ extern "C" {
 #include <poincare/subtraction.h>
 #include <poincare/power.h>
 #include <poincare/constant.h>
+#include <poincare/unreal.h>
 #include <ion.h>
 #include <cmath>
 
@@ -22,6 +23,9 @@ namespace Poincare {
 
 template<typename T>
 void ComplexNode<T>::setComplex(std::complex<T> c) {
+  if (!std::isnan(c.imag()) && c.imag() != 0.0) {
+    Expression::SetEncounteredComplex(true);
+  }
   this->real(c.real());
   this->imag(c.imag());
   if (this->real() == -0) {
@@ -42,67 +46,24 @@ T ComplexNode<T>::toScalar() const {
 
 template<typename T>
 Expression ComplexNode<T>::complexToExpression(Preferences::ComplexFormat complexFormat) const {
-  if (std::isnan(this->real()) || std::isnan(this->imag())) {
-    return Undefined();
+  if (complexFormat == Preferences::ComplexFormat::Real && Expression::EncounteredComplex()) {
+    return Unreal();
   }
-  if (complexFormat == Preferences::ComplexFormat::Cartesian) {
-      Expression real;
-      Expression imag;
-      if (this->real() != 0 || this->imag() == 0) {
-        real = Number::DecimalNumber<T>(this->real());
-      }
-      if (this->imag() != 0) {
-        if (this->imag() == 1.0 || this->imag() == -1) {
-          imag = Constant(Ion::Charset::IComplex);
-        } else if (this->imag() > 0) {
-          imag = Multiplication(Number::DecimalNumber(this->imag()), Constant(Ion::Charset::IComplex));
-        } else {
-          imag = Multiplication(Number::DecimalNumber(-this->imag()), Constant(Ion::Charset::IComplex));
-        }
-      }
-      if (imag.isUninitialized()) {
-        return real;
-      } else if (real.isUninitialized()) {
-        if (this->imag() > 0) {
-          return imag;
-        } else {
-          return Opposite(imag);
-        }
-        return imag;
-      } else if (this->imag() > 0) {
-        return Addition(real, imag);
-      } else {
-        return Subtraction(real, imag);
-      }
-  }
-  assert(complexFormat == Preferences::ComplexFormat::Polar);
-  Expression norm;
-  Expression exp;
-  T r = std::abs(*this);
-  T th = std::arg(*this);
-  if (r != 1 || th == 0) {
-    norm = Number::DecimalNumber(r);
-  }
-  if (r != 0 && th != 0) {
-    Expression arg;
-    if (th == 1.0) {
-      arg = Constant(Ion::Charset::IComplex);
-    } else if (th == -1.0) {
-      arg = Opposite(Constant(Ion::Charset::IComplex));
-    } else if (th > 0) {
-      arg = Multiplication(Number::DecimalNumber(th), Constant(Ion::Charset::IComplex));
-    } else {
-      arg = Opposite(Multiplication(Number::DecimalNumber(-th), Constant(Ion::Charset::IComplex)));
-    }
-    exp = Power(Constant(Ion::Charset::Exponential), arg);
-  }
-  if (exp.isUninitialized()) {
-    return norm;
-  } else if (norm.isUninitialized()) {
-    return exp;
+  T ra, tb;
+  if (complexFormat == Preferences::ComplexFormat::Polar) {
+    ra = std::abs(*this);
+    tb = std::arg(*this);
   } else {
-    return Multiplication(norm, exp);
+    ra = this->real();
+    tb = this->imag();
   }
+  return Expression::CreateComplexExpression(
+      Number::DecimalNumber<T>(std::fabs(ra)),
+      Number::DecimalNumber<T>(std::fabs(tb)),
+      complexFormat,
+      (std::isnan(this->real()) || std::isnan(this->imag())),
+      ra == 0.0, std::fabs(ra) == 1.0, tb == 0.0, std::fabs(tb) == 1.0, ra < 0.0, tb < 0.0
+    );
 }
 
 template <typename T>

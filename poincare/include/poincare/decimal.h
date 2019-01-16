@@ -6,7 +6,7 @@
 
 namespace Poincare {
 
-/* A decimal as 0.01234 is stored that way:
+/* The decimal 0.01234 is stored as:
  *  - bool m_negative = false
  *  - int m_exponent = -2
  *  - int m_numberOfDigitsInMantissa = 1
@@ -47,23 +47,23 @@ public:
 
   // Properties
   Type type() const override { return Type::Decimal; }
-  Sign sign() const override { return m_negative ? Sign::Negative : Sign::Positive; }
-  Expression setSign(Sign s, Context & context, Preferences::AngleUnit angleUnit) override;
+  Sign sign(Context * context) const override { return m_negative ? Sign::Negative : Sign::Positive; }
+  Expression setSign(Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
 
   // Approximation
-  Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
+  Evaluation<float> approximate(SinglePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override {
     return Complex<float>(templatedApproximate<float>());
   }
-  Evaluation<double> approximate(DoublePrecision p, Context& context, Preferences::AngleUnit angleUnit) const override {
+  Evaluation<double> approximate(DoublePrecision p, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const override {
     return Complex<double>(templatedApproximate<double>());
   }
 
   // Comparison
-  int simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const override;
+  int simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const override;
 
   // Simplification
-  Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
-  Expression shallowBeautify(Context & context, Preferences::AngleUnit angleUnit) override;
+  Expression shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
+  Expression shallowBeautify(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
 
   // Serialization
   int serialize(char * buffer, int bufferSize, Preferences::PrintFloatMode floatDisplayMode = Preferences::PrintFloatMode::Decimal, int numberOfSignificantDigits = 0) const override;
@@ -85,6 +85,8 @@ private:
 class Decimal final : public Number {
 friend class Number;
 friend class DecimalNode;
+template<typename T>
+friend class ComplexNode;
 public:
   static int Exponent(const char * integralPart, int integralPartLength, const char * fractionalPart, int fractionalPartLength, const char * exponent, int exponentLength, bool exponentIsNegative = false);
   Decimal(const char * integralPart, int integralPartLength, const char * fractionalPart, int fractionalPartLength, int exponent);
@@ -100,10 +102,10 @@ private:
   constexpr static int k_maxMantissaLength = 20;
   DecimalNode * node() const { return static_cast<DecimalNode *>(Number::node()); }
   Decimal(size_t size, const Integer & m, int e);
-  Expression setSign(ExpressionNode::Sign s, Context & context, Preferences::AngleUnit angleUnit);
+  Expression setSign(ExpressionNode::Sign s);
   // Simplification
-  Expression shallowReduce(Context & context, Preferences::AngleUnit angleUnit);
-  Expression shallowBeautify(Context & context, Preferences::AngleUnit angleUnit);
+  Expression shallowReduce();
+  Expression shallowBeautify();
 };
 
 }

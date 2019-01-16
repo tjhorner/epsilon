@@ -11,20 +11,21 @@ constexpr Poincare::ExpressionNode::Sign Positive = Poincare::ExpressionNode::Si
 constexpr Poincare::ExpressionNode::Sign Negative = Poincare::ExpressionNode::Sign::Negative;
 constexpr Poincare::ExpressionNode::Sign Unknown = Poincare::ExpressionNode::Sign::Unknown;
 
-void assert_parsed_expression_sign(const char * expression, Poincare::ExpressionNode::Sign sign) {
+void assert_parsed_expression_sign(const char * expression, Poincare::ExpressionNode::Sign sign, Poincare::Preferences::ComplexFormat complexFormat = Cartesian) {
   Shared::GlobalContext globalContext;
   Expression e = parse_expression(expression);
   quiz_assert(!e.isUninitialized());
-  e = e.simplify(globalContext, Degree);
-  quiz_assert(e.sign() == sign);
+  e = e.reduce(globalContext, complexFormat, Degree);
+  quiz_assert(e.sign(&globalContext) == sign);
 }
 
 QUIZ_CASE(poincare_sign) {
-  assert_parsed_expression_sign("abs(-cos(2))", Positive);
+  assert_parsed_expression_sign("abs(-cos(2)+I)", Positive);
   assert_parsed_expression_sign("2.345E-23", Positive);
   assert_parsed_expression_sign("-2.345E-23", Negative);
   assert_parsed_expression_sign("2*(-3)*abs(-32)", Negative);
   assert_parsed_expression_sign("2*(-3)*abs(-32)*cos(3)", Unknown);
+  assert_parsed_expression_sign("x", Unknown);
   assert_parsed_expression_sign("2^(-abs(3))", Positive);
   assert_parsed_expression_sign("(-2)^4", Positive);
   assert_parsed_expression_sign("(-2)^3", Negative);
@@ -33,6 +34,8 @@ QUIZ_CASE(poincare_sign) {
   assert_parsed_expression_sign("-23/32", Negative);
   assert_parsed_expression_sign("P", Positive);
   assert_parsed_expression_sign("X", Positive);
+  assert_parsed_expression_sign("R(-1)", Unknown);
+  assert_parsed_expression_sign("R(-1)", Unknown, Real);
 }
 
 QUIZ_CASE(poincare_polynomial_degree) {
@@ -53,6 +56,7 @@ QUIZ_CASE(poincare_polynomial_degree) {
   assert_parsed_expression_polynomial_degree("prediction(0.2,10)+1", -1);
   assert_parsed_expression_polynomial_degree("2-x-x^3", 3);
   assert_parsed_expression_polynomial_degree("P*x", 1);
+  assert_parsed_expression_polynomial_degree("R(-1)*x", -1, "x", Real);
   // f: x->x^2+Px+1
   assert_simplify("1+P*x+x^2>f(x)");
   assert_parsed_expression_polynomial_degree("f(x)", 2);
@@ -61,7 +65,7 @@ QUIZ_CASE(poincare_polynomial_degree) {
 void assert_expression_has_characteristic_range(Expression e, float range, Preferences::AngleUnit angleUnit = Preferences::AngleUnit::Degree) {
   Shared::GlobalContext globalContext;
   quiz_assert(!e.isUninitialized());
-  e = e.simplify(globalContext, angleUnit);
+  e = e.reduce(globalContext, Preferences::ComplexFormat::Cartesian, angleUnit);
   if (std::isnan(range)) {
     quiz_assert(std::isnan(e.characteristicXRange(globalContext, angleUnit)));
   } else {
@@ -123,18 +127,18 @@ QUIZ_CASE(poincare_get_variables) {
   assert_parsed_expression_has_variables("f(tata)", variableBuffer7, 2);
 }
 
-void assert_parsed_expression_has_polynomial_coefficient(const char * expression, const char * symbolName, const char ** coefficients, Preferences::AngleUnit angleUnit = Preferences::AngleUnit::Degree) {
+void assert_parsed_expression_has_polynomial_coefficient(const char * expression, const char * symbolName, const char ** coefficients, Preferences::ComplexFormat complexFormat = Preferences::ComplexFormat::Cartesian, Preferences::AngleUnit angleUnit = Preferences::AngleUnit::Degree) {
   Shared::GlobalContext globalContext;
   Expression e = parse_expression(expression);
   quiz_assert(!e.isUninitialized());
-  e = e.reduce(globalContext, angleUnit);
+  e = e.reduce(globalContext, complexFormat, angleUnit);
   Expression coefficientBuffer[Poincare::Expression::k_maxNumberOfPolynomialCoefficients];
-  int d = e.getPolynomialReducedCoefficients(symbolName, coefficientBuffer, globalContext, Radian);
+  int d = e.getPolynomialReducedCoefficients(symbolName, coefficientBuffer, globalContext, complexFormat, Radian);
   for (int i = 0; i <= d; i++) {
     Expression f = parse_expression(coefficients[i]);
     quiz_assert(!f.isUninitialized());
-    coefficientBuffer[i] = coefficientBuffer[i].reduce(globalContext, angleUnit);
-    f = f.reduce(globalContext, angleUnit);
+    coefficientBuffer[i] = coefficientBuffer[i].reduce(globalContext, complexFormat, angleUnit);
+    f = f.reduce(globalContext, complexFormat, angleUnit);
     quiz_assert(coefficientBuffer[i].isIdenticalTo(f));
   }
   quiz_assert(coefficients[d+1] == 0);
@@ -154,4 +158,8 @@ QUIZ_CASE(poincare_get_polynomial_coefficients) {
   const char * coefficient4[] = {"1", "P", "1", 0}; //x^2+Pi*x+1
   assert_simplify("1+P*x+x^2>f(x)");
   assert_parsed_expression_has_polynomial_coefficient("f(x)", "x", coefficient4);
+  const char * coefficient5[] = {"0", "I", 0}; //R(-1)x
+  assert_parsed_expression_has_polynomial_coefficient("R(-1)x", "x", coefficient5);
+  const char * coefficient6[] = {0}; //R(-1)x
+  assert_parsed_expression_has_polynomial_coefficient("R(-1)x", "x", coefficient6, Real);
 }

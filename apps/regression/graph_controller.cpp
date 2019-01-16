@@ -276,7 +276,9 @@ void GraphController::initCursorParameters() {
   double x = m_store->meanOfColumn(*m_selectedSeriesIndex, 0);
   double y = m_store->meanOfColumn(*m_selectedSeriesIndex, 1);
   m_cursor->moveTo(x, y);
-  m_store->panToMakePointVisible(x, y, cursorTopMarginRatio(), k_cursorRightMarginRatio, cursorBottomMarginRatio(), k_cursorLeftMarginRatio);
+  if (m_store->yAuto()) {
+    m_store->panToMakePointVisible(x, y, cursorTopMarginRatio(), k_cursorRightMarginRatio, cursorBottomMarginRatio(), k_cursorLeftMarginRatio);
+  }
   *m_selectedDotIndex = m_store->numberOfPairsOfSeries(*m_selectedSeriesIndex);
 }
 
@@ -291,8 +293,7 @@ bool GraphController::moveCursorVertically(int direction) {
 
   // Find the closest dot
   int closestDotSeries = -1;
-  double selectedDotY = *m_selectedDotIndex == -1 ? (direction > 0 ? -DBL_MAX : DBL_MAX) : y;
-  int dotSelected = m_store->closestVerticalDot(direction, x, selectedDotY, *m_selectedSeriesIndex, *m_selectedDotIndex, &closestDotSeries, context);
+  int dotSelected = m_store->closestVerticalDot(direction, x, y, *m_selectedSeriesIndex, *m_selectedDotIndex, &closestDotSeries, context);
 
   // Choose between selecting the regression or the dot
   bool validRegression = closestRegressionSeries > -1;

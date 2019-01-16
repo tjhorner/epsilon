@@ -20,8 +20,8 @@ extern "C" {
 }
 namespace Poincare {
 
-Expression EqualNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Equal(this).shallowReduce(context, angleUnit);
+Expression EqualNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Equal(this).shallowReduce();
 }
 
 Layout EqualNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
@@ -37,18 +37,18 @@ int EqualNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloatM
 }
 
 template<typename T>
-Evaluation<T> EqualNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
+Evaluation<T> EqualNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   return Complex<T>::Undefined();
 }
 
-Expression Equal::standardEquation(Context & context, Preferences::AngleUnit angleUnit) const {
+Expression Equal::standardEquation(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   Expression sub = Subtraction(childAtIndex(0).clone(), childAtIndex(1).clone());
-  return sub.reduce(context, angleUnit);
+  return sub.reduce(context, complexFormat, angleUnit);
 }
 
-Expression Equal::shallowReduce(Context & context, Preferences::AngleUnit angleUnit) {
+Expression Equal::shallowReduce() {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }

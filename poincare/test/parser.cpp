@@ -161,11 +161,11 @@ QUIZ_CASE(poincare_parser_parse) {
   assert_parsed_expression_is("1^2-3", Subtraction(Power(Rational(1),Rational(2)),Rational(3)));
   assert_parsed_expression_is("2^-3", Power(Rational(2),Opposite(Rational(3))));
   assert_parsed_expression_is("2--2+-1", Addition(Subtraction(Rational(2),Opposite(Rational(2))),Opposite(Rational(1))));
-  assert_parsed_expression_is("2--2*-1", Subtraction(Rational(2),Multiplication(Opposite(Rational(2)),Opposite(Rational(1)))));
+  assert_parsed_expression_is("2--2*-1", Subtraction(Rational(2),Opposite(Multiplication(Rational(2),Opposite(Rational(1))))));
   assert_parsed_expression_is("-1^2", Opposite(Power(Rational(1),Rational(2))));
   assert_parsed_expression_is("2/-3/-4", Division(Division(Rational(2),Opposite(Rational(3))),Opposite(Rational(4))));
   assert_parsed_expression_is("1*2-3*4", Subtraction(Multiplication(Rational(1),Rational(2)),Multiplication(Rational(3),Rational(4))));
-  assert_parsed_expression_is("-1*2", Multiplication(Opposite(Rational(1)), Rational(2))); // Unary minus shall have precedence
+  assert_parsed_expression_is("-1*2", Opposite(Multiplication(Rational(1), Rational(2))));
   assert_parsed_expression_is("1!", Factorial(Rational(1)));
   assert_parsed_expression_is("1+2!", Addition(Rational(1),Factorial(Rational(2))));
   assert_parsed_expression_is("1!+2", Addition(Factorial(Rational(1)),Rational(2)));
@@ -338,6 +338,7 @@ QUIZ_CASE(poincare_parser_parse_store) {
   assert_parsed_expression_is("1>f(x)", Store(Rational(1),Function("f",1,Symbol("x",1))));
   assert_parsed_expression_is("x>f(x)", Store(Symbol("x",1),Function("f",1,Symbol("x",1))));
   assert_parsed_expression_is("n>f(x)", Store(Symbol("n",1),Function("f",1,Symbol("x",1))));
+  assert_parsed_expression_is("[[x]]>f(x)", Store(Matrix(Symbol('x')), Function("f", 1, Symbol('x'))));
   assert_raises_parsing_error("a>b>c");
   assert_raises_parsing_error("1>2");
   assert_raises_parsing_error("1>");

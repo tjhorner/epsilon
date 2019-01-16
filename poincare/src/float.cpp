@@ -4,15 +4,20 @@
 namespace Poincare {
 
 template<typename T>
-Expression FloatNode<T>::setSign(Sign s, Context & context, Preferences::AngleUnit angleUnit) {
+Expression FloatNode<T>::setSign(Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  assert(s != Sign::Unknown);
+  Sign currentSign = m_value < 0 ? Sign::Negative : Sign::Positive;
   Expression thisExpr = Number(this);
-  Expression result = Float<T>(-m_value);
+  Expression result = Float<T>(s == currentSign ? m_value : -m_value);
   thisExpr.replaceWithInPlace(result);
   return result;
 }
 
 template<typename T>
-int FloatNode<T>::simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const {
+int FloatNode<T>::simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const {
+  if (!ascending) {
+    return e->simplificationOrderSameType(this, true, canBeInterrupted);
+  }
   assert(e->type() == ExpressionNode::Type::Float);
   const FloatNode<T> * other = static_cast<const FloatNode<T> *>(e);
   if (value() < other->value()) {

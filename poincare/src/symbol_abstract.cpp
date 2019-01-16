@@ -1,4 +1,6 @@
 #include <poincare/symbol_abstract.h>
+#include <poincare/complex_cartesian.h>
+#include <poincare/rational.h>
 #include <poincare/symbol.h>
 #include <poincare/expression.h>
 #include <poincare/helpers.h>
@@ -26,7 +28,24 @@ void SymbolAbstractNode::initToMatchSize(size_t goalSize) {
   assert(size() == goalSize);
 }
 
-int SymbolAbstractNode::simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const {
+ExpressionNode::Sign SymbolAbstractNode::sign(Context * context) const {
+  SymbolAbstract s(this);
+  Expression e = SymbolAbstract::Expand(s, *context, false);
+  if (e.isUninitialized()) {
+    return Sign::Unknown;
+  }
+  return e.sign(context);
+}
+
+Expression SymbolAbstractNode::setSign(ExpressionNode::Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  SymbolAbstract sa(this);
+  Expression e = SymbolAbstract::Expand(sa, *context, true);
+  assert(!e.isUninitialized());
+  sa.replaceWithInPlace(e);
+  return e.setSign(s, context, complexFormat, angleUnit, target);
+}
+
+int SymbolAbstractNode::simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const {
   assert(type() == e->type());
   return strcmp(name(), static_cast<const SymbolAbstractNode *>(e)->name());
 }
@@ -58,6 +77,14 @@ Expression SymbolAbstract::Expand(const SymbolAbstract & symbol, Context & conte
     e = e.replaceSymbolWithExpression(Symbol(Symbol::SpecialSymbols::UnknownX), symbol.childAtIndex(0));
   }
   return e;
+}
+
+bool SymbolAbstract::isReal(const SymbolAbstract & symbol, Context & context) {
+  Expression e = SymbolAbstract::Expand(symbol, context, false);
+  if (e.isUninitialized()) {
+    return true;
+  }
+  return e.isReal(context);
 }
 
 /* TreePool uses adresses and sizes that are multiples of 4 in order to make

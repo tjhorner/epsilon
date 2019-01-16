@@ -1,9 +1,13 @@
 #include <poincare/square_root.h>
 #include <poincare/power.h>
+#include <poincare/addition.h>
+#include <poincare/subtraction.h>
 #include <poincare/layout_helper.h>
 #include <poincare/serialization_helper.h>
 #include <poincare/simplification_helper.h>
 #include <poincare/nth_root_layout.h>
+#include <poincare/division.h>
+#include <poincare/sign_function.h>
 #include <assert.h>
 #include <cmath>
 #include <ion.h>
@@ -23,7 +27,7 @@ int SquareRootNode::serialize(char * buffer, int bufferSize, Preferences::PrintF
 }
 
 template<typename T>
-Complex<T> SquareRootNode::computeOnComplex(const std::complex<T> c, Preferences::AngleUnit angleUnit) {
+Complex<T> SquareRootNode::computeOnComplex(const std::complex<T> c, Preferences::ComplexFormat, Preferences::AngleUnit angleUnit) {
   std::complex<T> result = std::sqrt(c);
   /* Openbsd trigonometric functions are numerical implementation and thus are
    * approximative.
@@ -34,13 +38,13 @@ Complex<T> SquareRootNode::computeOnComplex(const std::complex<T> c, Preferences
   return Complex<T>(ApproximationHelper::TruncateRealOrImaginaryPartAccordingToArgument(result));
 }
 
-Expression SquareRootNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return SquareRoot(this).shallowReduce(context, angleUnit, target);
+Expression SquareRootNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return SquareRoot(this).shallowReduce(context, complexFormat, angleUnit, target);
 }
 
-Expression SquareRoot::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+Expression SquareRoot::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   {
-    Expression e = Expression::defaultShallowReduce(context, angleUnit);
+    Expression e = Expression::defaultShallowReduce();
     if (e.isUndefined()) {
       return e;
     }
@@ -52,7 +56,7 @@ Expression SquareRoot::shallowReduce(Context & context, Preferences::AngleUnit a
 #endif
   Power p = Power(childAtIndex(0), Rational(1, 2));
   replaceWithInPlace(p);
-  return p.shallowReduce(context, angleUnit, target);
+  return p.shallowReduce(context, complexFormat, angleUnit, target);
 }
 
 }

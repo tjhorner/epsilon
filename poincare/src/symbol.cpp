@@ -15,16 +15,12 @@ namespace Poincare {
 
 constexpr char Symbol::k_ans[];
 
-/*ExpressionNode::Sign SymbolNode::sign() const {
-  TODO: Maybe, we will want to know that from a context given in parameter:
-  if (context.expressionForSymbol(this, false) != nullptr) {
-    return context.expressionForSymbol(this, false)->sign(context);
-  }
-}
-*/
-
 Expression SymbolNode::replaceSymbolWithExpression(const SymbolAbstract & symbol, const Expression & expression) {
   return Symbol(this).replaceSymbolWithExpression(symbol, expression);
+}
+
+Expression SymbolNode::replaceUnknown(const Symbol & symbol) {
+  return Symbol(this).replaceUnknown(symbol);
 }
 
 int SymbolNode::polynomialDegree(Context & context, const char * symbolName) const {
@@ -73,6 +69,11 @@ float SymbolNode::characteristicXRange(Context & context, Preferences::AngleUnit
   return 0.0f;
 }
 
+bool SymbolNode::isReal(Context & context) const {
+  Symbol s(this);
+  return SymbolAbstract::isReal(s, context);
+}
+
 Layout SymbolNode::createLayout(Preferences::PrintFloatMode floatDisplayMode, int numberOfSignificantDigits) const {
   if (m_name[0] == Symbol::SpecialSymbols::UnknownX) {
     assert(m_name[1] == 0);
@@ -116,8 +117,8 @@ int SymbolNode::serialize(char * buffer, int bufferSize, Preferences::PrintFloat
   return strlcpy(buffer, m_name, bufferSize);
 }
 
-Expression SymbolNode::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ReductionTarget target) {
-  return Symbol(this).shallowReduce(context, angleUnit, target);
+Expression SymbolNode::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) {
+  return Symbol(this).shallowReduce(context, complexFormat, angleUnit, target);
 }
 
 Expression SymbolNode::shallowReplaceReplaceableSymbols(Context & context) {
@@ -125,13 +126,13 @@ Expression SymbolNode::shallowReplaceReplaceableSymbols(Context & context) {
 }
 
 template<typename T>
-Evaluation<T> SymbolNode::templatedApproximate(Context& context, Preferences::AngleUnit angleUnit) const {
+Evaluation<T> SymbolNode::templatedApproximate(Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit) const {
   Symbol s(this);
   Expression e = SymbolAbstract::Expand(s, context, false);
   if (e.isUninitialized()) {
     return Complex<T>::Undefined();
   }
-  return e.approximateToEvaluation<T>(context, angleUnit);
+  return e.node()->approximate(T(), context, complexFormat, angleUnit);
 }
 
 Symbol::Symbol(const char * name, int length) : SymbolAbstract(TreePool::sharedPool()->createTreeNode<SymbolNode>(SymbolAbstract::AlignedNodeSize(length, sizeof(SymbolNode)))) {
@@ -156,7 +157,7 @@ bool Symbol::isRegressionSymbol(const char * c) {
   return false;
 }
 
-Expression Symbol::shallowReduce(Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+Expression Symbol::shallowReduce(Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   Symbol s = *this;
   Expression result = SymbolAbstract::Expand(s, context, true);
   if (result.isUninitialized()) {
@@ -164,7 +165,7 @@ Expression Symbol::shallowReduce(Context & context, Preferences::AngleUnit angle
   }
   replaceWithInPlace(result);
   // The stored expression is as entered by the user, so we need to call reduce
-  return result.deepReduce(context, angleUnit, target);
+  return result.deepReduce(context, complexFormat, angleUnit, target);
 }
 
 Expression Symbol::replaceSymbolWithExpression(const SymbolAbstract & symbol, const Expression & expression) {
@@ -178,6 +179,12 @@ Expression Symbol::replaceSymbolWithExpression(const SymbolAbstract & symbol, co
     return value;
   }
   return *this;
+}
+
+Expression Symbol::replaceUnknown(const Symbol & symbol) {
+  assert(!symbol.isUninitialized());
+  assert(symbol.type() == ExpressionNode::Type::Symbol);
+  return replaceSymbolWithExpression(symbol, Symbol(SpecialSymbols::UnknownX));
 }
 
 int Symbol::getPolynomialCoefficients(Context & context, const char * symbolName, Expression coefficients[]) const {

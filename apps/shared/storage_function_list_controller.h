@@ -26,6 +26,7 @@ public:
   KDCoordinate cumulatedWidthFromIndex(int i) override;
   KDCoordinate cumulatedHeightFromIndex(int j) override;
   int indexFromCumulatedWidth(KDCoordinate offsetX) override;
+  int indexFromCumulatedHeight(KDCoordinate offsetY) override;
   int typeAtLocation(int i, int j) override;
   HighlightCell * reusableCell(int index, int type) override;
   int reusableCellCount(int type) override;
@@ -52,12 +53,15 @@ public:
 protected:
   StackViewController * stackController() const;
   void configureFunction(Ion::Storage::Record record);
-  void computeTitlesColumnWidth();
+  void computeTitlesColumnWidth(bool forceMax = false);
   StorageFunctionStore * modelStore() override;
+  KDCoordinate baseline(int j);
+  void resetMemoizationForIndex(int index) override;
+  void shiftMemoization(bool newCellIsUnder) override;
   SelectableTableView m_selectableTableView;
 private:
   static constexpr KDCoordinate k_minTitleColumnWidth = 65;
-  static constexpr KDCoordinate k_functionTitleSumOfMargins = 2*Metric::HistoryHorizontalMargin;
+  static constexpr KDCoordinate k_functionTitleSumOfMargins = 25;
   TabViewController * tabController() const;
   InputViewController * inputController() override;
   KDCoordinate maxFunctionNameWidth();
@@ -68,10 +72,13 @@ private:
   virtual FunctionTitleCell * titleCells(int index) = 0;
   virtual HighlightCell * expressionCells(int index) = 0;
   virtual void willDisplayTitleCellAtIndex(HighlightCell * cell, int j) = 0;
+  virtual KDCoordinate privateBaseline(int j) const = 0;
+  KDCoordinate nameWidth(int nameLength) const;
   EvenOddCell m_emptyCell;
   Button m_plotButton;
   Button m_valuesButton;
   KDCoordinate m_titlesColumnWidth;
+  KDCoordinate m_memoizedCellBaseline[k_memoizedCellsCount];
 };
 
 }

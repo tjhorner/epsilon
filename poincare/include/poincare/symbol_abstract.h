@@ -32,7 +32,11 @@ public:
   void initToMatchSize(size_t goalSize) override;
 
   // ExpressionNode
-  int simplificationOrderSameType(const ExpressionNode * e, bool canBeInterrupted) const override;
+  int simplificationOrderSameType(const ExpressionNode * e, bool ascending, bool canBeInterrupted) const override;
+
+  // Property
+  Sign sign(Context * context) const override;
+  Expression setSign(ExpressionNode::Sign s, Context * context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ReductionTarget target) override;
 
   // TreeNode
 #if POINCARE_TREE_LOG
@@ -76,6 +80,7 @@ protected:
   SymbolAbstractNode * node() const { return static_cast<SymbolAbstractNode *>(Expression::node()); }
 private:
   static Expression Expand(const SymbolAbstract & symbol, Context & context, bool clone);
+  static bool isReal(const SymbolAbstract & symbol, Context & context);
   static size_t AlignedNodeSize(size_t nameLength, size_t nodeSize);
 };
 

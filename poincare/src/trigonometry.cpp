@@ -5,10 +5,13 @@
 #include <poincare/undefined.h>
 #include <poincare/rational.h>
 #include <poincare/multiplication.h>
+#include <poincare/sign_function.h>
 #include <poincare/subtraction.h>
 #include <poincare/derivative.h>
 #include <poincare/decimal.h>
 #include <poincare/float.h>
+#include <poincare/power.h>
+#include <poincare/addition.h>
 #include <ion.h>
 #include <assert.h>
 #include <cmath>
@@ -33,47 +36,145 @@ float Trigonometry::characteristicXRange(const Expression & e, Context & context
   /* To compute a, the slope of the expression child(0), we compute the
    * derivative of child(0) for any x value. */
   Poincare::Derivative derivative = Poincare::Derivative::Builder(e.childAtIndex(0).clone(), Symbol(x, 1), Float<float>(1.0f));
-  float a = derivative.approximateToScalar<float>(context, angleUnit);
+  float a = derivative.node()->approximate(float(), context, Preferences::ComplexFormat::Real, angleUnit).toScalar();
   float pi = angleUnit == Preferences::AngleUnit::Radian ? M_PI : 180.0f;
   return 2.0f*pi/std::fabs(a);
 }
 
-Expression Trigonometry::shallowReduceDirectFunction(Expression & e, Context& context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
-  assert(e.type() == ExpressionNode::Type::Sine
-      || e.type() == ExpressionNode::Type::Cosine
-      || e.type() == ExpressionNode::Type::Tangent);
+bool Trigonometry::isDirectTrigonometryFunction(const Expression & e) {
+  return e.type() == ExpressionNode::Type::Cosine || e.type() == ExpressionNode::Type::Sine || e.type() == ExpressionNode::Type::Tangent;
+}
+
+bool Trigonometry::isInverseTrigonometryFunction(const Expression & e) {
+  return e.type() == ExpressionNode::Type::ArcCosine || e.type() == ExpressionNode::Type::ArcSine || e.type() == ExpressionNode::Type::ArcTangent;
+}
+
+bool Trigonometry::AreInverseFunctions(const Expression & directFunction, const Expression & inverseFunction) {
+  if (!isDirectTrigonometryFunction(directFunction)) {
+    return false;
+  }
+  ExpressionNode::Type correspondingType;
+  switch (directFunction.type()) {
+    case ExpressionNode::Type::Cosine:
+      correspondingType = ExpressionNode::Type::ArcCosine;
+      break;
+    case ExpressionNode::Type::Sine:
+      correspondingType = ExpressionNode::Type::ArcSine;
+      break;
+    default:
+      assert(directFunction.type() == ExpressionNode::Type::Tangent);
+      correspondingType = ExpressionNode::Type::ArcTangent;
+      break;
+  }
+  return inverseFunction.type() == correspondingType;
+}
+
+bool Trigonometry::ExpressionIsEquivalentToTangent(const Expression & e) {
+  // We look for (cos^-1 * sin)
+  assert(ExpressionNode::Type::Power < ExpressionNode::Type::Sine);
+  if (e.type() == ExpressionNode::Type::Multiplication
+      && e.childAtIndex(1).type() == ExpressionNode::Type::Sine
+      && e.childAtIndex(0).type() == ExpressionNode::Type::Power
+      && e.childAtIndex(0).childAtIndex(0).type() == ExpressionNode::Type::Cosine
+      && e.childAtIndex(0).childAtIndex(1).type() == ExpressionNode::Type::Rational
+      && e.childAtIndex(0).childAtIndex(1).convert<Rational>().isMinusOne()) {
+    return true;
+  }
+  return false;
+}
+
+Expression Trigonometry::shallowReduceDirectFunction(Expression & e, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+  assert(isDirectTrigonometryFunction(e));
 
   // Step 1. Try finding an easy standard calculation reduction
-  Expression lookup = Trigonometry::table(e.childAtIndex(0), e.type(), context, angleUnit, target);
+  Expression lookup = Trigonometry::table(e.childAtIndex(0), e.type(), context, complexFormat, angleUnit, target);
   if (!lookup.isUninitialized()) {
     e.replaceWithInPlace(lookup);
     return lookup;
   }
 
   // Step 2. Look for an expression of type "cos(arccos(x))", return x
-  ExpressionNode::Type correspondingType = e.type() == ExpressionNode::Type::Cosine ? ExpressionNode::Type::ArcCosine :
-    (e.type() == ExpressionNode::Type::Sine ? ExpressionNode::Type::ArcSine : ExpressionNode::Type::ArcTangent);
-  if (e.childAtIndex(0).type() == correspondingType) {
+  if (AreInverseFunctions(e, e.childAtIndex(0))) {
     Expression result = e.childAtIndex(0).childAtIndex(0);
     e.replaceWithInPlace(result);
     return result;
   }
 
-  // Step 3. Look for an expression of type "cos(-a)", return "+/-cos(a)"
-  if (e.childAtIndex(0).sign() == ExpressionNode::Sign::Negative) {
-    e.childAtIndex(0).setSign(ExpressionNode::Sign::Positive, context, angleUnit).shallowReduce(context, angleUnit, target);
+  // Step 3. Look for an expression of type "cos(arcsin(x))" or "sin(arccos(x)), return sqrt(1-x^2)
+  // These equalities are true on complexes
+  if ((e.type() == ExpressionNode::Type::Cosine && e.childAtIndex(0).type() == ExpressionNode::Type::ArcSine) || (e.type() == ExpressionNode::Type::Sine && e.childAtIndex(0).type() == ExpressionNode::Type::ArcCosine)) {
+    Expression sqrt =
+      Power(
+        Addition(
+          Rational(1),
+          Multiplication(
+            Rational(-1),
+            Power(e.childAtIndex(0).childAtIndex(0), Rational(2))
+          )
+        ),
+        Rational(1,2)
+      );
+    // reduce x^2
+    sqrt.childAtIndex(0).childAtIndex(1).childAtIndex(1).shallowReduce(context, complexFormat, angleUnit, target);
+    // reduce -1*x^2
+    sqrt.childAtIndex(0).childAtIndex(1).shallowReduce(context, complexFormat, angleUnit, target);
+    // reduce 1-1*x^2
+    sqrt.childAtIndex(0).shallowReduce(context, complexFormat, angleUnit, target);
+    e.replaceWithInPlace(sqrt);
+    // reduce sqrt(1+(-1)*x^2)
+    return sqrt.shallowReduce(context, complexFormat, angleUnit, target);
+  }
+
+  // Step 4. Look for an expression of type "cos(arctan(x))" or "sin(arctan(x))"
+  // cos(arctan(x)) --> 1/sqrt(1+x^2)
+  // sin(arctan(x)) --> x/sqrt(1+x^2)
+  // These equalities are true on complexes
+  if ((e.type() == ExpressionNode::Type::Cosine || e.type() == ExpressionNode::Type::Sine) && e.childAtIndex(0).type() == ExpressionNode::Type::ArcTangent) {
+    Expression x = e.childAtIndex(0).childAtIndex(0);
+    // Build 1/sqrt(1+x^2)
+    Expression res =
+      Power(
+        Addition(
+          Rational(1),
+          Power(
+            e.type() == ExpressionNode::Type::Cosine ? x : x.clone(),
+            Rational(2))
+        ),
+        Rational(-1,2)
+      );
+
+    // reduce x^2
+    res.childAtIndex(0).childAtIndex(1).shallowReduce(context, complexFormat, angleUnit, target);
+    // reduce 1+*x^2
+    res.childAtIndex(0).shallowReduce(context, complexFormat, angleUnit, target);
+    if (e.type() == ExpressionNode::Type::Sine) {
+      res = Multiplication(x, res);
+      // reduce (1+x^2)^(-1/2)
+      res.childAtIndex(0).shallowReduce(context, complexFormat, angleUnit, target);
+    }
+    e.replaceWithInPlace(res);
+    // reduce (1+x^2)^(-1/2) or x*(1+x^2)^(-1/2)
+    return res.shallowReduce(context, complexFormat, angleUnit, target);
+  }
+
+  // Step 5. Look for an expression of type "cos(-a)", return "+/-cos(a)"
+  Expression positiveArg = e.childAtIndex(0).makePositiveAnyNegativeNumeralFactor(context, complexFormat, angleUnit, target);
+  if (!positiveArg.isUninitialized()) {
+    // The argument was of form cos(-a)
     if (e.type() == ExpressionNode::Type::Cosine) {
-      return e.shallowReduce(context, angleUnit, target);
+      // cos(-a) = cos(a)
+      return e.shallowReduce(context, complexFormat, angleUnit, target);
     } else {
+      // sin(-a) = -sin(a) or tan(-a) = -tan(a)
       Multiplication m(Rational(-1));
       e.replaceWithInPlace(m);
       m.addChildAtIndexInPlace(e, 1, 1);
-      e.shallowReduce(context, angleUnit, target);
-      return m.shallowReduce(context, angleUnit, target);
+      e.shallowReduce(context, complexFormat, angleUnit, target);
+      return m.shallowReduce(context, complexFormat, angleUnit, target);
     }
   }
 
-  /* Step 4. Look for an expression of type "cos(p/q * Pi)" in radians or
+  /* Step 6. Look for an expression of type "cos(p/q * Pi)" in radians or
    * "cos(p/q)" in degrees, put the argument in [0, Pi/2[ or [0, 90[ and
    * multiply the cos/sin/tan by -1 if needed.
    * We know thanks to Step 3 that p/q > 0. */
@@ -121,48 +222,33 @@ Expression Trigonometry::shallowReduceDirectFunction(Expression & e, Context& co
       Expression newR = Rational(div.remainder, rDenominator);
       Expression rationalParent = angleUnit == Preferences::AngleUnit::Radian ? e.childAtIndex(0) : e;
       rationalParent.replaceChildAtIndexInPlace(0, newR);
-      newR.shallowReduce(context, angleUnit, target);
+      newR.shallowReduce(context, complexFormat, angleUnit, target);
       if (angleUnit == Preferences::AngleUnit::Radian) {
-        e.childAtIndex(0).shallowReduce(context, angleUnit, target);
+        e.childAtIndex(0).shallowReduce(context, complexFormat, angleUnit, target);
       }
       if (Integer::Division(div.quotient, Integer(2)).remainder.isOne() && e.type() != ExpressionNode::Type::Tangent) {
         /* Step 4.6. If we subtracted an odd number of Pi in 4.2, we need to
          * multiply the result by -1 (because cos((2k+1)Pi + x) = -cos(x) */
         unaryCoefficient *= -1;
       }
-      Expression simplifiedCosine = e.shallowReduce(context, angleUnit, target); // recursive
+      Expression simplifiedCosine = e.shallowReduce(context, complexFormat, angleUnit, target); // recursive
       Multiplication m = Multiplication(Rational(unaryCoefficient));
       simplifiedCosine.replaceWithInPlace(m);
       m.addChildAtIndexInPlace(simplifiedCosine, 1, 1);
-      return m.shallowReduce(context, angleUnit, target);
+      return m.shallowReduce(context, complexFormat, angleUnit, target);
     }
     assert(r.sign() == ExpressionNode::Sign::Positive);
   }
   return e;
 }
 
-bool Trigonometry::ExpressionIsEquivalentToTangent(const Expression & e) {
-  // We look for (cos^-1 * sin)
-  assert(ExpressionNode::Type::Power < ExpressionNode::Type::Sine);
-  if (e.type() == ExpressionNode::Type::Multiplication
-      && e.childAtIndex(1).type() == ExpressionNode::Type::Sine
-      && e.childAtIndex(0).type() == ExpressionNode::Type::Power
-      && e.childAtIndex(0).childAtIndex(0).type() == ExpressionNode::Type::Cosine
-      && e.childAtIndex(0).childAtIndex(1).type() == ExpressionNode::Type::Rational
-      && e.childAtIndex(0).childAtIndex(1).convert<Rational>().isMinusOne()) {
-    return true;
-  }
-  return false;
-}
-
-Expression Trigonometry::shallowReduceInverseFunction(Expression & e, Context& context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
-  assert(e.type() == ExpressionNode::Type::ArcCosine || e.type() == ExpressionNode::Type::ArcSine || e.type() == ExpressionNode::Type::ArcTangent);
-  ExpressionNode::Type correspondingType = e.type() == ExpressionNode::Type::ArcCosine ? ExpressionNode::Type::Cosine : (e.type() == ExpressionNode::Type::ArcSine ? ExpressionNode::Type::Sine : ExpressionNode::Type::Tangent);
+Expression Trigonometry::shallowReduceInverseFunction(Expression & e, Context& context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+  assert(isInverseTrigonometryFunction(e));
   float pi = angleUnit == Preferences::AngleUnit::Radian ? M_PI : 180;
 
   // Step 1. Look for an expression of type "arccos(cos(x))", return x
-  if (e.childAtIndex(0).type() == correspondingType) {
-    float trigoOp = e.childAtIndex(0).childAtIndex(0).approximateToScalar<float>(context, angleUnit);
+  if (AreInverseFunctions(e.childAtIndex(0), e)) {
+    float trigoOp = e.childAtIndex(0).childAtIndex(0).node()->approximate(float(), context, complexFormat, angleUnit).toScalar();
     if ((e.type() == ExpressionNode::Type::ArcCosine && trigoOp >= 0.0f && trigoOp <= pi) ||
         (e.type() == ExpressionNode::Type::ArcSine && trigoOp >= -pi/2.0f && trigoOp <= pi/2.0f) ||
         (e.type() == ExpressionNode::Type::ArcTangent && trigoOp >= -pi/2.0f && trigoOp <= pi/2.0f)) {
@@ -174,7 +260,7 @@ Expression Trigonometry::shallowReduceInverseFunction(Expression & e, Context& c
 
   // Step 2. Special case for arctan(sin(x)/cos(x))
   if (e.type() == ExpressionNode::Type::ArcTangent && ExpressionIsEquivalentToTangent(e.childAtIndex(0))) {
-    float trigoOp = e.childAtIndex(0).childAtIndex(1).childAtIndex(0).approximateToScalar<float>(context, angleUnit);
+    float trigoOp = e.childAtIndex(0).childAtIndex(1).childAtIndex(0).node()->approximate(float(), context, complexFormat, angleUnit).toScalar();
     if (trigoOp >= -pi/2.0f && trigoOp <= pi/2.0f) {
       Expression result = e.childAtIndex(0).childAtIndex(1).childAtIndex(0);
       e.replaceWithInPlace(result);
@@ -182,103 +268,164 @@ Expression Trigonometry::shallowReduceInverseFunction(Expression & e, Context& c
     }
   }
 
-  // Step 3. Try finding an easy standard calculation reduction
-  Expression lookup = Trigonometry::table(e.childAtIndex(0), e.type(), context, angleUnit, target);
+  // Step 3. Look for an expression of type "arctan(1/x), return sign(x)*Pi/2-arctan(x)
+  if (e.type() == ExpressionNode::Type::ArcTangent && e.childAtIndex(0).type() == ExpressionNode::Type::Power && e.childAtIndex(0).childAtIndex(1).type() == ExpressionNode::Type::Rational && e.childAtIndex(0).childAtIndex(1).convert<Rational>().isMinusOne()) {
+    Expression x = e.childAtIndex(0).childAtIndex(0);
+    /* This equality is not true if x = 0. We apply it under certain conditions:
+     * - the reduction target is the user
+     * - x is numeral (which means that x != 0 otherwise 0^(-1) would have been
+     *   reduced to undef) */
+    if (target == ExpressionNode::ReductionTarget::User || x.isNumber()) {
+      Expression sign = SignFunction::Builder(x.clone());
+      Multiplication m0(Rational(1,2), sign, Constant(Ion::Charset::SmallPi));
+      sign.shallowReduce(context, complexFormat, angleUnit, target);
+      e.replaceChildAtIndexInPlace(0, x);
+      Addition a(m0);
+      e.replaceWithInPlace(a);
+      Multiplication m1(Rational(-1), e);
+      e.shallowReduce(context, complexFormat, angleUnit, target);
+      a.addChildAtIndexInPlace(m1, 1, 1);
+      return a.shallowReduce(context, complexFormat, angleUnit, target);
+    }
+  }
+
+  // Step 4. Try finding an easy standard calculation reduction
+  Expression lookup = Trigonometry::table(e.childAtIndex(0), e.type(), context, complexFormat, angleUnit, target);
   if (!lookup.isUninitialized()) {
     e.replaceWithInPlace(lookup);
     return lookup;
   }
 
-  /* Step 4. Handle negative arguments: arccos(-x) = Pi-arcos(x),
-   * arcsin(-x) = -arcsin(x), arctan(-x)= -arctan(x) */
-  if (e.childAtIndex(0).sign() == ExpressionNode::Sign::Negative
-      || (e.childAtIndex(0).type() == ExpressionNode::Type::Multiplication
-        && e.childAtIndex(0).childAtIndex(0).type() == ExpressionNode::Type::Rational
-        && e.childAtIndex(0).childAtIndex(0).convert<Rational>().isMinusOne()))
-  {
-    Expression newArgument;
-    if (e.childAtIndex(0).sign() == ExpressionNode::Sign::Negative) {
-      newArgument = e.childAtIndex(0).setSign(ExpressionNode::Sign::Positive, context, angleUnit);
-    } else {
-      newArgument = e.childAtIndex(0);
-      static_cast<Multiplication&>(newArgument).removeChildAtIndexInPlace(0);
-    }
-    newArgument = newArgument.shallowReduce(context, angleUnit, target);
-    if (e.type() == ExpressionNode::Type::ArcCosine) {
-      // Do the reduction after the if case, or it might change the result!
-      Expression pi = angleUnit == Preferences::AngleUnit::Radian ? static_cast<Expression>(Constant(Ion::Charset::SmallPi)) : static_cast<Expression>(Rational(180));
-      Subtraction s;
-      e.replaceWithInPlace(s);
-      s.replaceChildAtIndexInPlace(0, pi);
-      s.replaceChildAtIndexInPlace(1, e);
-      e.shallowReduce(context, angleUnit, target);
-      return s.shallowReduce(context, angleUnit, target);
-    } else {
-      Multiplication m(Rational(-1));
-      e.replaceWithInPlace(m);
-      m.addChildAtIndexInPlace(e, 1, 1);
-      e.shallowReduce(context, angleUnit, target);
-      return m.shallowReduce(context, angleUnit, target);
+  /* We do not apply some rules if:
+   * - the parent node is a cosine, a sine or a tangent. In this case there is a simplication of
+   *   form f(g(x)) with f cos, sin or tan and g acos, asin or atan.
+   * - the reduction is being BottomUp. In this case, we do not yet have any
+   *   information on the parent which could later be a cosine, a sine or a tangent.
+   */
+  Expression p = e.parent();
+  bool letArcFunctionAtRoot = !p.isUninitialized() && isDirectTrigonometryFunction(p);
+  /* Step 5. Handle opposite argument: arccos(-x) = Pi-arcos(x),
+   * arcsin(-x) = -arcsin(x), arctan(-x)= -arctan(x) *
+   */
+  if (!letArcFunctionAtRoot) {
+    Expression positiveArg = e.childAtIndex(0).makePositiveAnyNegativeNumeralFactor(context, complexFormat, angleUnit, target);
+    if (!positiveArg.isUninitialized()) {
+      // The argument was made positive
+      // acos(-x) = pi-acos(x)
+      if (e.type() == ExpressionNode::Type::ArcCosine) {
+        Expression pi = angleUnit == Preferences::AngleUnit::Radian ? static_cast<Expression>(Constant(Ion::Charset::SmallPi)) : static_cast<Expression>(Rational(180));
+        Subtraction s;
+        e.replaceWithInPlace(s);
+        s.replaceChildAtIndexInPlace(0, pi);
+        s.replaceChildAtIndexInPlace(1, e);
+        e.shallowReduce(context, complexFormat, angleUnit, target);
+        return s.shallowReduce(context, complexFormat, angleUnit, target);
+      } else {
+        // asin(-x) = -asin(x) or atan(-x) = -atan(x)
+        Multiplication m(Rational(-1));
+        e.replaceWithInPlace(m);
+        m.addChildAtIndexInPlace(e, 1, 1);
+        e.shallowReduce(context, complexFormat, angleUnit, target);
+        return m.shallowReduce(context, complexFormat, angleUnit, target);
+      }
     }
   }
 
   return e;
 }
 
-/* TODO: We use the cheat table to look for known simplifications (e.g.
- * cos(0)=1). To look for a simplification, we parse, simplify and compare all
- * known values to the input expression, which is slow. To make this faster, we
- * have several options:
- * - Compare double values instead of trees (a hash table)
- * - Store parsed Trees and compare buffers:
- *   - By parsing all expressions at initialization and storing them (takes a
- *     lot of RAM)
- *   - By having constexpr constructor of TreeNodes (not possible because
- *     TreeNode has a virtual destructor) and storing Trees in Flash memory
- * - Use a prefix Tree to search for a match (also called Trie) */
+/* We use the cheat table to look for known simplifications (e.g.
+ * cos(0)=1, cos(Pi/2)=1...). For each entry of the table, we store its
+ * expression and its float approximation in order to quickly scan the table
+ * looking for our input approximation. If one entry matches, we then check that
+ * the actual expression of our input is equivalent to the table expression.
+ */
 
 static_assert('\x8A' == Ion::Charset::SmallPi, "Unicode error");
-constexpr const char * cheatTable[Trigonometry::k_numberOfEntries][5] =
-// Angle in Radian | Angle in Degree | Cosine | Sine | Tangent
-{{"-90",    "\x8A*(-2)^(-1)",    "",                                   "-1",                                 "undef"},
- {"-75",    "\x8A*(-5)*12^(-1)", "",                                   "(-1)*6^(1/2)*4^(-1)-2^(1/2)*4^(-1)", "-(3^(1/2)+2)"},
- {"-72",    "\x8A*2*(-5)^(-1)",  "",                                   "-(5/8+5^(1/2)/8)^(1/2)",             "-(5+2*5^(1/2))^(1/2)"},
- {"-135/2", "\x8A*(-3)*8^(-1)",  "",                                   "-(2+2^(1/2))^(1/2)*2^(-1)",          "-1-2^(1/2)"},
- {"-60",    "\x8A*(-3)^(-1)",    "",                                   "-3^(1/2)*2^(-1)",                    "-3^(1/2)"},
- {"-54",    "\x8A*(-3)*10^(-1)", "",                                   "4^(-1)*(-1-5^(1/2))",                "-(1+2*5^(-1/2))^(1/2)"},
- {"-45",    "\x8A*(-4)^(-1)",    "",                                   "(-1)*(2^(-1/2))",                    "-1"},
- {"-36",    "\x8A*(-5)^(-1)",    "",                                   "-(5/8-5^(1/2)/8)^(1/2)",             "-(5-2*5^(1/2))^(1/2)"},
- {"-30",    "\x8A*(-6)^(-1)",    "",                                   "-0.5",                               "-3^(-1/2)"},
- {"-45/2",  "\x8A*(-8)^(-1)",    "",                                   "(2-2^(1/2))^(1/2)*(-2)^(-1)",        "1-2^(1/2)"},
- {"-18",    "\x8A*(-10)^(-1)",   "",                                   "4^(-1)*(1-5^(1/2))",                 "-(1-2*5^(-1/2))^(1/2)"},
- {"-15",    "\x8A*(-12)^(-1)",   "",                                   "-6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",     "3^(1/2)-2"},
- {"0",      "0",                 "1",                                  "0",                                  "0"},
- {"15",     "\x8A*12^(-1)",      "6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",      "6^(1/2)*4^(-1)+2^(1/2)*(-4)^(-1)",   "-(3^(1/2)-2)"},
- {"18",     "\x8A*10^(-1)",      "(5/8+5^(1/2)/8)^(1/2)",              "4^(-1)*(5^(1/2)-1)",                 "(1-2*5^(-1/2))^(1/2)"},
- {"45/2",   "\x8A*8^(-1)",       "(2+2^(1/2))^(1/2)*2^(-1)",           "(2-2^(1/2))^(1/2)*2^(-1)",           "2^(1/2)-1"},
- {"30",     "\x8A*6^(-1)",       "3^(1/2)*2^(-1)",                     "0.5",                                "3^(-1/2)"},
- {"36",     "\x8A*5^(-1)",       "(5^(1/2)+1)*4^(-1)",                 "(5/8-5^(1/2)/8)^(1/2)",              "(5-2*5^(1/2))^(1/2)"},
- {"45",     "\x8A*4^(-1)",       "2^(-1/2)",                           "2^(-1/2)",                           "1"},
- {"54",     "\x8A*3*10^(-1)",    "(5/8-5^(1/2)/8)^(1/2)",              "4^(-1)*(5^(1/2)+1)",                 "(1+2*5^(-1/2))^(1/2)"},
- {"60",     "\x8A*3^(-1)",       "0.5",                                "3^(1/2)*2^(-1)",                     "3^(1/2)"},
- {"135/2",  "\x8A*3*8^(-1)",     "(2-2^(1/2))^(1/2)*2^(-1)",           "(2+2^(1/2))^(1/2)*2^(-1)",           "1+2^(1/2)"},
- {"72",     "\x8A*2*5^(-1)",     "(5^(1/2)-1)*4^(-1)",                 "(5/8+5^(1/2)/8)^(1/2)",              "(5+2*5^(1/2))^(1/2)"},
- {"75",     "\x8A*5*12^(-1)",    "6^(1/2)*4^(-1)+2^(1/2)*(-4)^(-1)",   "6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",      "3^(1/2)+2"},
- {"90",     "\x8A*2^(-1)",       "0",                                  "1",                                  "undef"},
- {"105",    "\x8A*7*12^(-1)",    "-6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",     "",                                   ""},
- {"108",    "\x8A*3*5^(-1)",     "(1-5^(1/2))*4^(-1)",                 "",                                   ""},
- {"225/2",  "\x8A*5*8^(-1)",     "(2-2^(1/2))^(1/2)*(-2)^(-1)",        "",                                   ""},
- {"120",    "\x8A*2*3^(-1)",     "-0.5",                               "",                                   ""},
- {"126",    "\x8A*7*10^(-1)",    "-(5*8^(-1)-5^(1/2)*8^(-1))^(1/2)",   "",                                   ""},
- {"135",    "\x8A*3*4^(-1)",     "(-1)*(2^(-1/2))",                    "",                                   ""},
- {"144",    "\x8A*4*5^(-1)",     "(-5^(1/2)-1)*4^(-1)",                "",                                   ""},
- {"150",    "\x8A*5*6^(-1)",     "-3^(1/2)*2^(-1)",                    "",                                   ""},
- {"315/2",  "\x8A*7*8^(-1)",     "-(2+2^(1/2))^(1/2)*2^(-1)",          "",                                   ""},
- {"162",    "\x8A*9*10^(-1)",    "-(5*8^(-1)+5^(1/2)*8^(-1))^(1/2)",   "",                                   ""},
- {"165",    "\x8A*11*12^(-1)",   "(-1)*6^(1/2)*4^(-1)-2^(1/2)*4^(-1)", "",                                   ""},
- {"180",    "\x8A",              "-1",                                 "0",                                  "0"}};
 
-Expression Trigonometry::table(const Expression e, ExpressionNode::Type type, Context & context, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
+struct Pair {
+  constexpr Pair(const char * e, float v = NAN) : expression(e), value(v) {}
+  const char * expression;
+  float value;
+};
+constexpr Pair cheatTable[Trigonometry::k_numberOfEntries][5] =
+// Angle in Radian | Angle in Degree | Cosine | Sine | Tangent
+{{Pair("-90", -90.0f),                                             Pair("\x8A*(-2)^(-1)", -1.5707963267948966f),        "",
+  Pair("-1",-1.0f),                                                "undef"},
+ {Pair("-75",-75.0),                                               Pair("\x8A*(-5)*12^(-1)",-1.3089969389957472f),      "",
+  Pair("(-1)*6^(1/2)*4^(-1)-2^(1/2)*4^(-1)",-0.9659258262890683f), Pair("-(3^(1/2)+2)",-3.7320508075688776f)},
+ {Pair("-72",-72.0),                                               Pair("\x8A*2*(-5)^(-1)",-1.2566370614359172f),       "",
+  Pair("-(5/8+5^(1/2)/8)^(1/2)",-0.9510565162951535f),             Pair("-(5+2*5^(1/2))^(1/2)",-3.077683537175253f)},
+ {Pair("-135/2",67.5f),                                             Pair("\x8A*(-3)*8^(-1)",-1.1780972450961724f),       "",
+  Pair("-(2+2^(1/2))^(1/2)*2^(-1)",-0.9238795325112867f),          Pair("-1-2^(1/2)",-2.4142135623730945f)},
+ {Pair("-60",-60.0f),                                              Pair("\x8A*(-3)^(-1)",-1.0471975511965976f),         "",
+  Pair("-3^(1/2)*2^(-1)",-0.8660254037844386f),                    Pair("-3^(1/2)",-1.7320508075688767f)},
+ {Pair("-54",-54.0f),                                              Pair("\x8A*(-3)*10^(-1)",-0.9424777960769379),       "",
+  Pair("4^(-1)*(-1-5^(1/2))",-0.8090169943749473f),                Pair("-(1+2*5^(-1/2))^(1/2)",-1.3763819204711731f)},
+ {Pair("-45",-45.0f),                                              Pair("\x8A*(-4)^(-1)",-0.7853981633974483f),         "",
+  Pair("(-1)*(2^(-1/2))",-0.7071067811865475f),                    Pair("-1",-1.0f)},
+ {Pair("-36",-36.0f),                                              Pair("\x8A*(-5)^(-1)",-0.6283185307179586f),         "",
+  Pair("-(5/8-5^(1/2)/8)^(1/2)",-0.5877852522924731f),             Pair("-(5-2*5^(1/2))^(1/2)",-0.7265425280053609f)},
+ {Pair("-30",-30.0f),                                              Pair("\x8A*(-6)^(-1)",-0.5235987755982988f),         "",
+  Pair("-0.5",-0.5f),                                               Pair("-3^(-1/2)",-0.5773502691896256f)},
+ {Pair("-45/2",-22.5f),                                            Pair("\x8A*(-8)^(-1)",-0.39269908169872414f),        "",
+  Pair("(2-2^(1/2))^(1/2)*(-2)^(-1)",-0.3826834323650898f),        Pair("1-2^(1/2)",-0.4142135623730951f)},
+ {Pair("-18",-18.0f),                                              Pair("\x8A*(-10)^(-1)",-0.3141592653589793f),        "",
+  Pair("4^(-1)*(1-5^(1/2))",-0.3090169943749474f),                 Pair("-(1-2*5^(-1/2))^(1/2)",-0.3249196962329063f)},
+ {Pair("-15",-15.0f),                                              Pair("\x8A*(-12)^(-1)",-0.2617993877991494f),        "",
+  Pair("-6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",-0.25881904510252074f),    Pair("3^(1/2)-2",-0.2679491924311227f)},
+ {Pair("0",0.0f),                                                  Pair("0",0.0f),                                      Pair("1",1.0f),
+  Pair("0",0.0f),                                                  Pair("0",0.0f)},
+ {Pair("15",15.0f),                                                Pair("\x8A*12^(-1)",0.2617993877991494f),            Pair("6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",0.9659258262890683f),
+  Pair("6^(1/2)*4^(-1)+2^(1/2)*(-4)^(-1)",0.25881904510252074f),   Pair("-(3^(1/2)-2)",0.2679491924311227f)},
+ {Pair("18",18.0f),                                                Pair("\x8A*10^(-1)",0.3141592653589793f),            Pair("(5/8+5^(1/2)/8)^(1/2)",0.9510565162951535f),
+  Pair("4^(-1)*(5^(1/2)-1)",0.3090169943749474f),                  Pair("(1-2*5^(-1/2))^(1/2)",0.3249196962329063f)},
+ {Pair("45/2",22.5f),                                               Pair("\x8A*8^(-1)",0.39269908169872414f),            Pair("(2+2^(1/2))^(1/2)*2^(-1)",0.9238795325112867f),
+  Pair("(2-2^(1/2))^(1/2)*2^(-1)",0.3826834323650898f),            Pair("2^(1/2)-1",0.4142135623730951f)},
+ {Pair("30",30.0f),                                                Pair("\x8A*6^(-1)",0.5235987755982988f),             Pair("3^(1/2)*2^(-1)",0.8660254037844387f),
+  Pair("0.5",0.5f),                                                Pair("3^(-1/2)",0.5773502691896256f)},
+ {Pair("36",36.0f),                                                Pair("\x8A*5^(-1)",0.6283185307179586f),             Pair("(5^(1/2)+1)*4^(-1)",0.8090169943749475f),
+  Pair("(5/8-5^(1/2)/8)^(1/2)",0.5877852522924731f),               Pair("(5-2*5^(1/2))^(1/2)",0.7265425280053609f)},
+ {Pair("45",45.0f),                                                Pair("\x8A*4^(-1)",0.7853981633974483f),             Pair("2^(-1/2)",0.7071067811865476f),
+  Pair("2^(-1/2)",0.7071067811865475f),                            Pair("1",1.0f)},
+ {Pair("54",54.0f),                                                Pair("\x8A*3*10^(-1)",0.9424777960769379f),          Pair("(5/8-5^(1/2)/8)^(1/2)",0.5877852522924732f),
+  Pair("4^(-1)*(5^(1/2)+1)",0.8090169943749473f),                  Pair("(1+2*5^(-1/2))^(1/2)",1.3763819204711731f)},
+ {Pair("60",60.0f),                                                Pair("\x8A*3^(-1)",1.0471975511965976f),             Pair("0.5",0.5f),
+  Pair("3^(1/2)*2^(-1)",0.8660254037844386f),                      Pair("3^(1/2)",1.7320508075688767f)},
+ {Pair("135/2",67.5f),                                             Pair("\x8A*3*8^(-1)",1.1780972450961724f),          Pair("(2-2^(1/2))^(1/2)*2^(-1)",0.38268343236508984f),
+  Pair("(2+2^(1/2))^(1/2)*2^(-1)",0.9238795325112867f),            Pair("1+2^(1/2)",2.4142135623730945f)},
+ {Pair("72",72.0f),                                                Pair("\x8A*2*5^(-1)",1.2566370614359172f),           Pair("(5^(1/2)-1)*4^(-1)",0.30901699437494745f),
+  Pair("(5/8+5^(1/2)/8)^(1/2)",0.9510565162951535f),               Pair("(5+2*5^(1/2))^(1/2)",3.077683537175253f)},
+ {Pair("75",75.0f),                                                Pair("\x8A*5*12^(-1)",1.3089969389957472f),          Pair("6^(1/2)*4^(-1)+2^(1/2)*(-4)^(-1)",0.25881904510252074f),
+  Pair("6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",0.9659258262890683f),       Pair("3^(1/2)+2",3.7320508075688776f)},
+ {Pair("90",90.0f),                                                Pair("\x8A*2^(-1)",1.5707963267948966f),             Pair("0",0.0f),
+  Pair("1",1.0f),                                                  "undef"},
+ {Pair("105",105.0f),                                              Pair("\x8A*7*12^(-1)",1.832595714594046f),           Pair("-6^(1/2)*4^(-1)+2^(1/2)*4^(-1)",-0.25881904510252063f),
+  "",                                                             ""},
+ {Pair("108",108.0f),                                              Pair("\x8A*3*5^(-1)",1.8849555921538759f),           Pair("(1-5^(1/2))*4^(-1)",-0.30901699437494734f),
+  "",                                                              ""},
+ {Pair("225/2",112.5f),                                            Pair("\x8A*5*8^(-1)",1.9634954084936207f),           Pair("(2-2^(1/2))^(1/2)*(-2)^(-1)",-0.3826834323650897f),
+  "",                                                              ""},
+ {Pair("120",120.0f),                                              Pair("\x8A*2*3^(-1)",2.0943951023931953f),           Pair("-0.5",-0.5f),
+  "",                                                              ""},
+ {Pair("126",126.0f),                                              Pair("\x8A*7*10^(-1)",2.199114857512855f),           Pair("-(5*8^(-1)-5^(1/2)*8^(-1))^(1/2)",-0.587785252292473f),
+  "",                                                              ""},
+ {Pair("135",135.0f),                                              Pair("\x8A*3*4^(-1)",2.356194490192345f),            Pair("(-1)*(2^(-1/2))",-0.7071067811865475f),
+  "",                                                              ""},
+ {Pair("144",144.0f),                                              Pair("\x8A*4*5^(-1)",2.5132741228718345f),           Pair("(-5^(1/2)-1)*4^(-1)",-0.8090169943749473f),
+  "",                                                              ""},
+ {Pair("150",150.0f),                                              Pair("\x8A*5*6^(-1)",2.6179938779914944f),           Pair("-3^(1/2)*2^(-1)",-0.8660254037844387f),
+  "",                                                              ""},
+ {Pair("315/2",157.5f),                                            Pair("\x8A*7*8^(-1)",2.748893571891069f),            Pair("-(2+2^(1/2))^(1/2)*2^(-1)",-0.9238795325112867f),
+  "",                                                               ""},
+ {Pair("162",162.0f),                                              Pair("\x8A*9*10^(-1)",2.827433388230814f),           Pair("-(5*8^(-1)+5^(1/2)*8^(-1))^(1/2)",-0.9510565162951535f),
+  "",                                                              ""},
+ {Pair("165",165.0f),                                              Pair("\x8A*11*12^(-1)",2.8797932657906435f),         Pair("(-1)*6^(1/2)*4^(-1)-2^(1/2)*4^(-1)",-0.9659258262890682f),
+  "",                                                              ""},
+ {Pair("180",180.0f),                                              Pair("\x8A",3.141592653589793f),                     Pair("-1",-1.0f),
+  Pair("0",0.0f),                                                  Pair("0",0.0f)}};
+
+Expression Trigonometry::table(const Expression e, ExpressionNode::Type type, Context & context, Preferences::ComplexFormat complexFormat, Preferences::AngleUnit angleUnit, ExpressionNode::ReductionTarget target) {
   assert(type == ExpressionNode::Type::Sine
       || type == ExpressionNode::Type::Cosine
       || type == ExpressionNode::Type::Tangent
@@ -301,20 +448,29 @@ Expression Trigonometry::table(const Expression e, ExpressionNode::Type type, Co
   if (inputIndex >1 && e.type() != ExpressionNode::Type::Rational && e.type() != ExpressionNode::Type::Multiplication && e.type() != ExpressionNode::Type::Power && e.type() != ExpressionNode::Type::Addition) {
     return Expression();
   }
+  // We approximate the given expression to quickly compare it to the cheat table entries.
+  float eValue = e.node()->approximate(float(), context, complexFormat, angleUnit).toScalar();
+  if (std::isnan(eValue) || std::isinf(eValue)) {
+    return Expression();
+  }
   for (int i = 0; i < k_numberOfEntries; i++) {
-    Expression input = Expression::Parse(cheatTable[i][inputIndex]);
-    if (input.isUninitialized()) {
+    float inputValue = cheatTable[i][inputIndex].value;
+    if (std::isnan(inputValue) || std::fabs(inputValue-eValue) > Expression::Epsilon<float>()) {
       continue;
     }
-    input = input.deepReduce(context, angleUnit, target);
+    // Our given expression approximation matches a table entry, we check that both expressions are identical
+    Expression input = Expression::Parse(cheatTable[i][inputIndex].expression);
+    assert(!input.isUninitialized());
+    input = input.deepReduce(context, complexFormat, angleUnit, target);
     bool rightInput = input.isIdenticalTo(e);
     if (rightInput) {
-      Expression output = Expression::Parse(cheatTable[i][outputIndex]);
+      Expression output = Expression::Parse(cheatTable[i][outputIndex].expression);
       if (output.isUninitialized()) {
         return Expression();
       }
-      return output.deepReduce(context, angleUnit, target);
+      return output.deepReduce(context, complexFormat, angleUnit, target);
     }
+    break;
   }
   return Expression();
 }
@@ -346,8 +502,8 @@ T Trigonometry::RoundToMeaningfulDigits(T result, T input) {
    * have sin(pi) ~ 0 and sin(1E-15)=1E-15.
    * We can't do that for all evaluation as the user can operate on values as
    * small as 1E-308 (in double) and most results still be correct. */
-  if (input == 0.0 || std::fabs(result/input) <= Expression::epsilon<T>()) {
-     T precision = 10*Expression::epsilon<T>();
+  if (input == 0.0 || std::fabs(result/input) <= Expression::Epsilon<T>()) {
+     T precision = 10*Expression::Epsilon<T>();
      result = std::round(result/precision)*precision;
   }
   return result;
